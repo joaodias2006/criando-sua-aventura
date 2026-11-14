@@ -1,5 +1,5 @@
-// 2D/3D Raycasting Line-of-Sight (LoS) & Dynamic Fog of War Engine for Ordo Realitas VTT
-// Computes real-time visibility polygons blocked by walls and the physical Hinge-Joint door angle.
+// 2D Raycasting Line-of-Sight (LoS) & Dynamic Fog of War Engine for Ordo Realitas VTT
+// Supports dynamic custom walls and multiple interactive doors placed by the Master on any map!
 
 export const MAP_BOUNDS = {
   minX: -7.5,
@@ -10,34 +10,38 @@ export const MAP_BOUNDS = {
   height: 9,
 };
 
-// Static wall segments in world coordinates (x1, z1, x2, z2)
-// Room 1 is West (-7.5 to 0), Room 2 is East (0 to +7.5)
-// Doorway gap on divider wall (x = 0) is from z = -1.05 to z = +0.95 (width 2.0m)
-export const STATIC_WALL_SEGMENTS = [
-  // Outer perimeter
-  { x1: -7.5, z1: -4.5, x2: 7.5, z2: -4.5 },
-  { x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
-  { x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
-  { x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-  // Central dividing wall (x = 0) North section
-  { x1: 0, z1: -4.5, x2: 0, z2: -1.05 },
-  // Central dividing wall (x = 0) South section
-  { x1: 0, z1: 0.95, x2: 0, z2: 4.5 },
-];
-
 /**
- * Computes the dynamic line segment for the physical door based on its hinge pivot (-1.05) and current angle
+ * Computes the dynamic line segment for an interactive door based on its hinge pivot, baseAngle and current opening angle
  */
-export function getDoorSegment(doorAngleRad, doorHingeX = 0, doorHingeZ = -1.05, doorLength = 2.0) {
-  // When doorAngleRad === 0, door goes from (0, -1.05) to (0, +0.95) closing the gap completely
-  const endX = doorHingeX + Math.sin(doorAngleRad) * doorLength;
-  const endZ = doorHingeZ + Math.cos(doorAngleRad) * doorLength;
+export function getDoorSegment(door) {
+  const totalAngle = (door.baseAngle || 0) + (door.angleRad || 0);
+  const len = door.length || 2.0;
+  // When totalAngle === 0, door goes from (hingeX, hingeZ) along +Z by `len`
+  const endX = door.hingeX + Math.sin(totalAngle) * len;
+  const endZ = door.hingeZ + Math.cos(totalAngle) * len;
   return {
-    x1: doorHingeX,
-    z1: doorHingeZ,
+    id: door.id,
+    x1: door.hingeX,
+    z1: door.hingeZ,
     x2: endX,
     z2: endZ,
   };
+}
+
+/**
+ * Builds the combined array of blocking segments from current map walls + current doors
+ */
+export function buildActiveObstacleSegments(walls = [], doors = []) {
+  const segs = walls.map((w) => ({
+    x1: w.x1,
+    z1: w.z1,
+    x2: w.x2,
+    z2: w.z2,
+  }));
+  doors.forEach((d) => {
+    segs.push(getDoorSegment(d));
+  });
+  return segs;
 }
 
 /**
@@ -72,7 +76,7 @@ function intersectRaySegment(ox, oz, dx, dz, seg, maxDist) {
  * Computes a 360-degree visibility polygon around (ox, oz) with a directional flashlight boost
  */
 export function computeVisibilityPolygon(ox, oz, facingAngle, segments, flashlightOn = true) {
-  const numRays = 220;
+  const numRays = 180; // Fast 60fps ray count
   const points = [];
 
   for (let i = 0; i < numRays; i++) {
@@ -80,10 +84,9 @@ export function computeVisibilityPolygon(ox, oz, facingAngle, segments, flashlig
     const dx = Math.cos(angle);
     const dz = Math.sin(angle);
 
-    // Base ambient vision radius around character is 4.8m; flashlight cone extends to 12.5m
-    let angleDiff = Math.atan2(Math.sin(angle - facingAngle), Math.cos(angle - facingAngle));
-    const inFlashlightCone = flashlightOn && Math.abs(angleDiff) < 0.72; // ~82 deg cone
-    let maxDist = inFlashlightCone ? 12.8 : 5.4;
+    const angleDiff = Math.atan2(Math.sin(angle - facingAngle), Math.cos(angle - facingAngle));
+    const inFlashlightCone = flashlightOn && Math.abs(angleDiff) < 0.72;
+    let maxDist = inFlashlightCone ? 12.8 : 5.2;
 
     for (let s = 0; s < segments.length; s++) {
       const hitDist = intersectRaySegment(ox, oz, dx, dz, segments[s], maxDist);
@@ -106,7 +109,6 @@ export function computeVisibilityPolygon(ox, oz, facingAngle, segments, flashlig
  */
 export function isPointVisibleToViewers(px, pz, viewers, segments, manualRoom2Revealed = false) {
   if (manualRoom2Revealed && px >= 0) return true;
-  if (px < 0.1) return true; // Room 1 is the starting investigation room
 
   for (const v of viewers) {
     const dx = px - v.x;
@@ -119,8 +121,8 @@ export function isPointVisibleToViewers(px, pz, viewers, segments, manualRoom2Re
 
     let blocked = false;
     for (const seg of segments) {
-      const hit = intersectRaySegment(v.x, v.z, dirX, dirZ, seg, dist - 0.15);
-      if (hit !== null && hit < dist - 0.15) {
+      const hit = intersectRaySegment(v.x, v.z, dirX, dirZ, seg, dist - 0.12);
+      if (hit !== null && hit < dist - 0.12) {
         blocked = true;
         break;
       }

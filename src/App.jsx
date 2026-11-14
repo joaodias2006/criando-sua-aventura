@@ -1,48 +1,52 @@
 import React, { useState, useCallback } from 'react';
 import {
+  PRESET_MAPS,
   INITIAL_CHARACTERS,
   INITIAL_TOKENS,
   INITIAL_HANDOUTS,
   ELEMENT_THEMES,
+  makeAvatarSvg,
 } from './data/ordoData';
 import InitiativeTracker from './components/InitiativeTracker';
 import WorkshopAndAudioPanel from './components/WorkshopAndAudioPanel';
 import CharacterSheetPanel from './components/CharacterSheetPanel';
-import Tabletop3D from './components/Tabletop3D';
+import TabletopCanvas2D from './components/TabletopCanvas2D';
 import HandoutInspectorModal from './components/HandoutInspectorModal';
+import MapAndTokenManagerModal from './components/MapAndTokenManagerModal';
 import { soundEngine } from './utils/soundEngine';
 import { Dices, X, HelpCircle } from 'lucide-react';
 
 export default function App() {
-  // 1. Permission Role ('gm' | 'arthur' | 'dante')
-  const [role, setRole] = useState('arthur');
+  // 1. Permission Role ('gm' | 'arthur' | 'joui' | 'dante') — starts in 'gm' so user can immediately edit everything!
+  const [role, setRole] = useState('gm');
 
-  // 2. Characters & 3D Tokens State
+  // 2. Active Map / Environment State (supports preset maps & user-uploaded images)
+  const [currentMap, setCurrentMap] = useState(PRESET_MAPS[0]);
+  const [studioModalTab, setStudioModalTab] = useState(null); // null | 'map' | 'tokens'
+
+  // 3. Characters & Image Portrait Tokens State
   const [characters, setCharacters] = useState(INITIAL_CHARACTERS);
   const [activeCharId, setActiveCharId] = useState('arthur');
   const [tokens, setTokens] = useState(INITIAL_TOKENS);
   const [selectedTokenId, setSelectedTokenId] = useState('arthur');
 
-  // 3. Physical Hinge Door & Dynamic Fog of War State
-  const [doorLocked, setDoorLocked] = useState(false);
-  const [doorAngleDeg, setDoorAngleDeg] = useState(0);
-  const [manualDoorTargetRad, setManualDoorTargetRad] = useState(null);
-  const [fogMode, setFogMode] = useState('dynamic'); // 'dynamic' | 'reveal_all' | 'brush_reveal' | 'brush_hide'
+  // 4. Fog of War State ('dynamic' | 'reveal_all' | 'brush_reveal' | 'brush_hide')
+  const [fogMode, setFogMode] = useState('dynamic');
   const [manualRoom2Revealed, setManualRoom2Revealed] = useState(false);
 
-  // 4. Inspectable 3D Handouts & Workshop Props
+  // 5. Inspectable Handouts & Spawned Props (including custom uploaded prop images)
   const [handouts, setHandouts] = useState(INITIAL_HANDOUTS);
   const [inspectedHandout, setInspectedHandout] = useState(null);
   const [spawnedProps, setSpawnedProps] = useState([]);
 
-  // 5. Combat Initiative, 3D Dice Rolls & Ritual Particle Effects
+  // 6. Combat Initiative, Dice Rolls & Ritual Visuals
   const [turnIndex, setTurnIndex] = useState(0);
   const [round, setRound] = useState(1);
   const [rollRequest, setRollRequest] = useState(null);
   const [lastRollResult, setLastRollResult] = useState(null);
   const [activeRitualEffect, setActiveRitualEffect] = useState(null);
 
-  // 6. Tabletop UI Toggles & Toast Notifications
+  // 7. Tabletop UI Toggles & Toast Notifications
   const [showTeamCursors, setShowTeamCursors] = useState(true);
   const [rulerForcedOn, setRulerForcedOn] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -57,24 +61,23 @@ export default function App() {
 
   const handleRoleChange = (nextRole) => {
     setRole(nextRole);
-    if (nextRole === 'arthur' || nextRole === 'dante') {
+    if (nextRole !== 'gm' && characters[nextRole]) {
       setActiveCharId(nextRole);
       setSelectedTokenId(nextRole);
       setFogMode('dynamic');
     }
     triggerNotification(
       nextRole === 'gm'
-        ? '👑 Visão do Mestre (GM) ativada: Controle total, Sombra Preta translúcida e Tranca de Portas.'
-        : `🕵️ Visão do Jogador (${nextRole.toUpperCase()}) ativada: Campo de Visão restrito pela porta e lanternas.`
+        ? '👑 Modo Mestre ativado: Altere tudo! Mova qualquer token, suba mapas, desenhe paredes e abra/tranque portas.'
+        : `🕵️ Visão do Jogador (${nextRole.toUpperCase()}) ativada: Você enxerga apenas o que a lanterna ilumina.`
     );
   };
 
-  // Sync Character Sheet updates (PV, SAN, PE) with 3D Tokens & Automatic Conditions
+  // Sync Character Sheet updates (PV, SAN, PE) with Tokens & Automatic Conditions
   const handleUpdateCharacter = (charId, updatedChar) => {
     const prevChar = characters[charId];
     setCharacters((prev) => ({ ...prev, [charId]: updatedChar }));
 
-    // Trigger atmospheric SFX if character enters Enlouquecendo (0 SAN) or Morrendo (0 PV)
     if (updatedChar.san.current <= 0 && prevChar?.san.current > 0) {
       soundEngine.playSFX('whispers');
       triggerNotification(`👁️ ${updatedChar.name} chegou a 0 de Sanidade e está ENLOUQUECENDO!`);
@@ -167,7 +170,7 @@ export default function App() {
       id: Date.now(),
       characterName: characters[activeCharId]?.name || 'Agente',
       label,
-      ruleSummary: `Soma de Dados Físicos (${count}d${sides}${bonus ? ` + ${bonus}` : ''})`,
+      ruleSummary: `Soma de Dados (${count}d${sides}${bonus ? ` + ${bonus}` : ''})`,
       rolls,
       chosenDie: sumDice,
       bonus,
@@ -176,7 +179,7 @@ export default function App() {
     });
   };
 
-  // Cast Paranormal Ritual: Spend PE, Spawn 3D Element Particles & Roll Dice
+  // Cast Paranormal Ritual: Spend PE, Spawn Element Particles & Roll Dice
   const handleCastRitual = (char, ritual) => {
     if (char.pe.current < ritual.peCost) {
       triggerNotification(`⚠️ PE Insuficiente para conjurar ${ritual.name} (Requer ${ritual.peCost} PE).`);
@@ -205,11 +208,10 @@ export default function App() {
     });
 
     triggerNotification(
-      `✨ ${char.name} conjurou ${ritual.name} (-${ritual.peCost} PE) • Partículas de ${ritual.element} ativadas!`
+      `✨ ${char.name} conjurou ${ritual.name} (-${ritual.peCost} PE)!`
     );
   };
 
-  // Toggle Flashlight on active character token
   const handleToggleFlashlight = () => {
     setTokens((prev) =>
       prev.map((t) =>
@@ -218,7 +220,6 @@ export default function App() {
     );
   };
 
-  // Toggle Condition on a Token in Initiative Tracker
   const handleToggleCondition = (tokenId, condId) => {
     setTokens((prev) =>
       prev.map((t) => {
@@ -232,21 +233,29 @@ export default function App() {
     );
   };
 
-  // Spawn Item from Steam-style Workshop into the 3D Scene
+  // Spawn Item from Catalog into the Scene
   const handleSpawnWorkshopItem = (item) => {
-    const randX = -2.2 + (Math.random() - 0.5) * 2.4;
-    const randZ = (Math.random() - 0.5) * 2.6;
+    const randX = -1.8 + (Math.random() - 0.5) * 2.5;
+    const randZ = (Math.random() - 0.5) * 2.5;
 
     if (item.spawnType === 'token') {
+      const fallbackAvatar = makeAvatarSvg(
+        item.name.slice(0, 6).toUpperCase(),
+        '#18181b',
+        item.color,
+        'monster'
+      );
       const newToken = {
         id: `tok_${Date.now()}`,
         name: item.name,
-        subtitle: `${item.element} • Spawnado`,
+        subtitle: `${item.element} • Na Mesa`,
         type: 'monster',
         owner: 'gm',
         element: item.element,
         color: item.color,
         ringColor: item.color,
+        avatar: item.avatar || fallbackAvatar,
+        sizeSquares: item.sizeSquares || 1.0,
         x: randX,
         z: randZ,
         rotation: 0,
@@ -261,28 +270,28 @@ export default function App() {
       };
       setTokens((prev) => [...prev, newToken]);
       setSelectedTokenId(newToken.id);
-      triggerNotification(`👹 Miniatura 3D "${item.name}" adicionada à mesa com gravidade!`);
+      triggerNotification(`🖼️ Token "${item.name}" colocado na mesa!`);
     } else if (item.spawnType === 'clue') {
       const newClue = {
         id: `clue_${Date.now()}`,
-        title: `Dossiê Confidencial #${handouts.length + 1}`,
-        subtitle: 'Pista Adicionada via Workshop',
+        title: `Pista de Investigação #${handouts.length + 1}`,
+        subtitle: 'Documento Colocado pelo Mestre',
         type: 'diary',
         room: 1,
         x: randX,
         y: 0.12,
         z: randZ,
         revealedToAll: false,
-        frontHeader: 'RELATÓRIO DE CAMPO — ORDO REALITAS',
+        frontHeader: 'RELATÓRIO DE CAMPO — CARPAZINHA',
         frontDate: 'Documento Recém-Descoberto',
         frontBody:
-          'Registros apontam que a oscilação da Membrana neste local foi provocada por um símbolo de Transcender oculto na sala ao lado.',
-        backTitle: 'VERSO DO DOSSIÊ — ANOTAÇÃO DO AGENTE',
-        backSecret: 'Use rituais ou armas com afinidade oposta para romper a proteção da entidade.',
-        backStamp: 'VERIFICADO PELA BASE DA ORDEM',
+          'Anotações encontradas no local indicam a presença do símbolo espiral de Santo Berço.',
+        backTitle: 'VERSO DO DOCUMENTO — ANOTAÇÃO SECRETA',
+        backSecret: 'Procure a passagem oculta atrás da porta principal.',
+        backStamp: 'ORDO REALITAS — ARQUIVO CONFIDENCIAL',
       };
       setHandouts((prev) => [...prev, newClue]);
-      triggerNotification(`📄 Nova Pista 3D "${newClue.title}" colocada no tabuleiro!`);
+      triggerNotification(`📄 Nova Pista "${newClue.title}" colocada no mapa!`);
     } else {
       setSpawnedProps((prev) => [
         ...prev,
@@ -294,11 +303,26 @@ export default function App() {
           z: randZ,
         },
       ]);
-      triggerNotification(`🪑 Objeto 3D "${item.name}" instanciado no cenário!`);
+      triggerNotification(`🪑 Objeto "${item.name}" adicionado ao mapa (arraste no Modo Mestre)!`);
     }
   };
 
-  // Share Handout with all players
+  // Spawn Custom Uploaded Image Prop onto the Map
+  const handleSpawnImageProp = (name, dataUrl) => {
+    setSpawnedProps((prev) => [
+      ...prev,
+      {
+        id: `imgprop_${Date.now()}`,
+        name,
+        imageUrl: dataUrl,
+        sizeMeters: 2.4,
+        x: 0,
+        z: 0,
+      },
+    ]);
+    triggerNotification(`🪑 Imagem "${name}" adicionada ao mapa! Arraste-a livremente no Modo Mestre.`);
+  };
+
   const handleShareHandout = (clue) => {
     setHandouts((prev) =>
       prev.map((h) => (h.id === clue.id ? { ...h, revealedToAll: true } : h))
@@ -319,7 +343,7 @@ export default function App() {
         isEnlouquecendo ? 'screen-insane-glitch' : ''
       }`}
     >
-      {/* Top Bar: Role Switcher, Combat Initiative Tracker & Tactical Tools */}
+      {/* Top Bar: Role Switcher (Modo Mestre vs Jogador), Initiative Tracker & Tactical Tools */}
       <InitiativeTracker
         role={role}
         setRole={handleRoleChange}
@@ -337,46 +361,48 @@ export default function App() {
         setShowTeamCursors={setShowTeamCursors}
       />
 
-      {/* Main Workspace: Left Workshop/Audio Panel + Center 3D Tabletop + Right Character Sheet */}
+      {/* Main Workspace */}
       <div className="flex-1 flex relative overflow-hidden">
-        {/* Left Sidebar: Workshop, Fog/Rituals, Clues & Soundboard */}
+        {/* Left Sidebar: Map/Token Upload, Workshop, Fog/Rituals, Clues & Soundboard */}
         <WorkshopAndAudioPanel
           role={role}
           fogMode={fogMode}
           setFogMode={setFogMode}
           manualRoom2Revealed={manualRoom2Revealed}
           setManualRoom2Revealed={setManualRoom2Revealed}
-          doorLocked={doorLocked}
-          setDoorLocked={setDoorLocked}
           onSpawnWorkshopItem={handleSpawnWorkshopItem}
+          onSpawnImageProp={handleSpawnImageProp}
           onTriggerRitualEffect={(element) =>
             setActiveRitualEffect({ id: Date.now(), element, name: `Pulso de ${element}` })
           }
           handouts={handouts}
           onInspectHandout={(clue) => setInspectedHandout(clue)}
+          onOpenMapModal={() => setStudioModalTab('map')}
+          onOpenTokenModal={() => setStudioModalTab('tokens')}
         />
 
-        {/* Center 3D Virtual Tabletop Canvas */}
+        {/* Center 60FPS 2D/2.5D Tactical Tabletop ("O Segredo na Floresta" Style) */}
         <main className="flex-1 relative h-full overflow-hidden">
-          <Tabletop3D
+          <TabletopCanvas2D
             role={role}
+            currentMap={currentMap}
+            onUpdateMap={setCurrentMap}
+            onOpenMapModal={() => setStudioModalTab('map')}
+            onOpenTokenModal={() => setStudioModalTab('tokens')}
             tokens={tokens}
             setTokens={setTokens}
             selectedTokenId={selectedTokenId}
             setSelectedTokenId={setSelectedTokenId}
             handouts={handouts}
+            setHandouts={setHandouts}
             onInspectHandout={(clue) => setInspectedHandout(clue)}
-            doorLocked={doorLocked}
-            setDoorLocked={setDoorLocked}
-            doorAngleDeg={doorAngleDeg}
-            setDoorAngleDeg={setDoorAngleDeg}
-            manualDoorTargetRad={manualDoorTargetRad}
-            setManualDoorTargetRad={setManualDoorTargetRad}
             fogMode={fogMode}
+            setFogMode={setFogMode}
             manualRoom2Revealed={manualRoom2Revealed}
             rollRequest={rollRequest}
             activeRitualEffect={activeRitualEffect}
             spawnedProps={spawnedProps}
+            setSpawnedProps={setSpawnedProps}
             showTeamCursors={showTeamCursors}
             rulerForcedOn={rulerForcedOn}
             onNotification={triggerNotification}
@@ -391,13 +417,13 @@ export default function App() {
             />
           )}
 
-          {/* Top-Left Interactive Guide Overlay */}
+          {/* Bottom-Left Quick Help Card */}
           {showControlsHint && (
-            <div className="absolute top-3 left-3 z-20 max-w-sm bg-zinc-950/90 backdrop-blur-md border border-zinc-800 rounded-xl p-3 shadow-xl text-xs space-y-1.5">
+            <div className="absolute bottom-14 left-3 z-20 max-w-sm bg-zinc-950/95 backdrop-blur-md border border-zinc-800 rounded-xl p-3 shadow-xl text-xs space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-amber-300 flex items-center gap-1.5">
                   <HelpCircle className="w-3.5 h-3.5" />
-                  Guia Rápido de Interação 3D
+                  Como Usar o Modo Mestre (Estilo O Segredo na Floresta)
                 </span>
                 <button
                   onClick={() => setShowControlsHint(false)}
@@ -408,27 +434,19 @@ export default function App() {
               </div>
               <ul className="text-[11px] text-zinc-300 space-y-1 leading-snug">
                 <li>
-                  • <strong>Porta Física (Hinge Joint):</strong> Clique na porta/maçaneta com a
-                  mãozinha e arraste para entreabrir e iluminar a Sala 2 pela fresta!
+                  • <strong>Subir Seu Mapa ou Trocar Cenário:</strong> Clique em{' '}
+                  <strong className="text-amber-300">🗺️ Trocar / Subir Mapa</strong> no topo do
+                  mapa para usar qualquer imagem do seu PC ou os 4 mapas prontos!
                 </li>
                 <li>
-                  • <strong>Tokens & Régua 1,5m:</strong> Arraste seu token. Segure{' '}
-                  <kbd className="px-1 py-0.2 bg-zinc-800 text-amber-300 rounded font-mono text-[10px]">
-                    Tab
-                  </kbd>{' '}
-                  ou{' '}
-                  <kbd className="px-1 py-0.2 bg-zinc-800 text-amber-300 rounded font-mono text-[10px]">
-                    Alt
-                  </kbd>{' '}
-                  para medir em metros e quadrados.
+                  • <strong>Tokens com Sua Imagem:</strong> Clique em{' '}
+                  <strong className="text-red-300">🖼️ Criar / Editar Token</strong> para colocar a
+                  foto de qualquer personagem ou monstro.
                 </li>
                 <li>
-                  • <strong>Pistas 3D (Handouts):</strong> Passe o mouse nas pistas sobre as mesas
-                  e clique ou aperte{' '}
-                  <kbd className="px-1 py-0.2 bg-zinc-800 text-amber-300 rounded font-mono text-[10px]">
-                    Espaço
-                  </kbd>
-                  .
+                  • <strong>Editar Tudo (Modo Mestre):</strong> Use a barra no topo do mapa para{' '}
+                  <strong>Mover Tudo</strong>, desenhar <strong>+ Parede</strong>, colocar{' '}
+                  <strong>+ Porta</strong> ou deixar o <strong>Mapa Aberto (Sem Sombra)</strong>!
                 </li>
               </ul>
             </div>
@@ -436,14 +454,14 @@ export default function App() {
 
           {/* Notification Toast */}
           {notification && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-xl bg-zinc-950/95 border border-red-500/60 text-xs font-semibold text-zinc-100 shadow-2xl">
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-xl bg-zinc-950/95 border border-amber-500/60 text-xs font-semibold text-zinc-100 shadow-2xl">
               {notification}
             </div>
           )}
 
-          {/* Floating 3D Dice Roll Result Card (Official Jambô Editora Rules) */}
+          {/* Floating Dice Roll Result Card (Official Jambô Editora Rules) */}
           {lastRollResult && (
-            <div className="absolute top-3 right-3 z-20 w-72 bg-zinc-950/95 backdrop-blur-md border border-amber-500/60 rounded-xl p-3.5 shadow-2xl animate-fadeIn">
+            <div className="absolute top-16 right-3 z-20 w-72 bg-zinc-950/95 backdrop-blur-md border border-amber-500/60 rounded-xl p-3.5 shadow-2xl animate-fadeIn">
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
                   <Dices className="w-4 h-4 text-red-400" />
@@ -461,7 +479,6 @@ export default function App() {
                 {lastRollResult.characterName} • {lastRollResult.ruleSummary}
               </div>
 
-              {/* Individual Rolled Dice Pills */}
               <div className="flex flex-wrap gap-1.5 mb-2.5">
                 {lastRollResult.rolls.map((val, idx) => {
                   const isSelected =
@@ -481,7 +498,6 @@ export default function App() {
                 })}
               </div>
 
-              {/* Final Total Banner */}
               <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
                 <div className="text-[11px] text-zinc-300 font-mono">
                   Dado: <strong>{lastRollResult.chosenDie}</strong>
@@ -527,13 +543,26 @@ export default function App() {
         />
       </div>
 
-      {/* High-Resolution 3D Handout / Clue Inspector Modal */}
+      {/* High-Resolution Handout / Clue Inspector Modal */}
       {inspectedHandout && (
         <HandoutInspectorModal
           handout={inspectedHandout}
           onClose={() => setInspectedHandout(null)}
           role={role}
           onShareWithPlayers={handleShareHandout}
+        />
+      )}
+
+      {/* Map & Token Image Upload Studio Modal */}
+      {studioModalTab && (
+        <MapAndTokenManagerModal
+          initialTab={studioModalTab}
+          onClose={() => setStudioModalTab(null)}
+          currentMap={currentMap}
+          onSelectOrUpdateMap={setCurrentMap}
+          tokens={tokens}
+          setTokens={setTokens}
+          onNotification={triggerNotification}
         />
       )}
     </div>

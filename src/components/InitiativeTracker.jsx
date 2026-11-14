@@ -41,7 +41,7 @@ export default function InitiativeTracker({
 
   return (
     <header className="h-14 w-full bg-[#0d0d11]/95 backdrop-blur-xl border-b border-zinc-800/90 px-4 flex items-center justify-between gap-3 z-30 select-none">
-      {/* Left: Brand & Permission Mode Switcher (Mestre vs Jogador) */}
+      {/* Left: Brand & Permission Mode Switcher (Modo Mestre vs Visão do Jogador) */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-700 to-red-950 border border-red-500/60 flex items-center justify-center shadow-lg">
@@ -51,8 +51,8 @@ export default function InitiativeTracker({
             <h1 className="font-serif text-sm font-extrabold tracking-wider text-zinc-100 leading-none">
               ORDO REALITAS <span className="text-red-500">VTT</span>
             </h1>
-            <span className="text-[10px] font-mono text-zinc-400">
-              Ordem Paranormal 3D • Física & LoS
+            <span className="text-[10px] font-mono text-emerald-400">
+              O Segredo na Floresta • 60 FPS Fluido
             </span>
           </div>
         </div>
@@ -68,10 +68,10 @@ export default function InitiativeTracker({
                 ? 'bg-red-900/90 text-red-100 border border-red-500/60 shadow'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title="Controle total: move qualquer token, tranca portas, vê através da Sombra Preta e usa o Workshop"
+            title="Modo Mestre: Pode alterar tudo! Subir mapas, criar/mover qualquer token, desenhar paredes, colocar portas e controlar a névoa."
           >
             <Crown className="w-3.5 h-3.5 text-amber-400" />
-            Visão do Mestre (GM)
+            👑 Modo Mestre (Alterar Tudo)
           </button>
 
           <button
@@ -84,26 +84,26 @@ export default function InitiativeTracker({
                 ? 'bg-amber-900/80 text-amber-100 border border-amber-500/60 shadow'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title="Visão restrita: só move Arthur, bloqueado por portas trancadas e pela Sombra Preta (Fog of War)"
+            title="Visão do Jogador: Só move o próprio personagem e enxerga o que a lanterna ilumina"
           >
             <User className="w-3.5 h-3.5 text-amber-400" />
-            Jogador 1 (Arthur)
+            Visão Jogador (Arthur)
           </button>
 
           <button
             onClick={() => {
-              setRole('dante');
-              setSelectedTokenId('dante');
+              setRole('joui');
+              setSelectedTokenId('joui');
             }}
             className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition ${
-              role === 'dante'
-                ? 'bg-purple-900/80 text-purple-100 border border-purple-500/60 shadow'
+              role === 'joui'
+                ? 'bg-red-900/80 text-red-100 border border-red-500/60 shadow'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
-            title="Visão restrita: só move Dante, bloqueado por portas trancadas e pela Sombra Preta (Fog of War)"
+            title="Visão do Jogador: Joui Jouki"
           >
-            <User className="w-3.5 h-3.5 text-purple-400" />
-            Jogador 2 (Dante)
+            <User className="w-3.5 h-3.5 text-red-400" />
+            Joui
           </button>
         </div>
       </div>
@@ -115,14 +115,14 @@ export default function InitiativeTracker({
           <span className="font-mono">RODADA {round}</span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 max-w-[340px] overflow-x-auto">
           {tokens.map((tok, idx) => {
             const isCurrentTurn = idx === turnIndex;
             return (
               <button
                 key={tok.id}
                 onClick={() => setSelectedTokenId(tok.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition ${
+                className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border shrink-0 transition ${
                   isCurrentTurn
                     ? 'bg-amber-500/20 border-amber-400 text-amber-200 shadow-sm'
                     : selectedTokenId === tok.id
@@ -198,7 +198,7 @@ export default function InitiativeTracker({
         </div>
       </div>
 
-      {/* Right: Tactical Ruler Toggle (1.5m/sq) & 3D Hand Cursors Toggle */}
+      {/* Right: Tactical Ruler Toggle (1.5m/sq) & Hand Cursors Toggle */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => setRulerForcedOn(!rulerForcedOn)}
@@ -220,10 +220,10 @@ export default function InitiativeTracker({
               ? 'bg-purple-950/80 border-purple-500/60 text-purple-200'
               : 'bg-zinc-900 border-zinc-800 text-zinc-400'
           }`}
-          title="Exibir cursores 'Mãozinhas' 3D dos outros jogadores na mesa"
+          title="Exibir cursores 'Mãozinhas' dos outros jogadores na mesa"
         >
           <Hand className="w-3.5 h-3.5 text-purple-400" />
-          Mãozinhas 3D
+          Mãozinhas
         </button>
       </div>
     </header>

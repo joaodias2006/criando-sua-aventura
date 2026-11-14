@@ -6,11 +6,12 @@ import {
   Volume2,
   VolumeX,
   FileSearch,
-  Lock,
-  Unlock,
   Paintbrush,
   Sparkles,
   PlusCircle,
+  Upload,
+  Map,
+  UserPlus,
 } from 'lucide-react';
 import { WORKSHOP_CATALOG, ELEMENT_THEMES } from '../data/ordoData';
 import { soundEngine } from '../utils/soundEngine';
@@ -21,12 +22,13 @@ export default function WorkshopAndAudioPanel({
   setFogMode,
   manualRoom2Revealed,
   setManualRoom2Revealed,
-  doorLocked,
-  setDoorLocked,
   onSpawnWorkshopItem,
+  onSpawnImageProp,
   onTriggerRitualEffect,
   handouts,
   onInspectHandout,
+  onOpenMapModal,
+  onOpenTokenModal,
 }) {
   const [activeTab, setActiveTab] = useState('workshop'); // 'workshop' | 'fog_rituals' | 'audio' | 'clues'
   const [activeTrack, setActiveTrack] = useState(null);
@@ -34,7 +36,7 @@ export default function WorkshopAndAudioPanel({
   const [volume, setVolume] = useState(0.65);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
 
-  const categories = ['Todos', 'Criaturas', 'Móveis 3D', 'Paranormal', 'Iluminação', 'Investigação'];
+  const categories = ['Todos', 'Criaturas', 'Móveis & Cenário', 'Paranormal', 'Iluminação', 'Investigação'];
   const filteredCatalog =
     selectedCategory === 'Todos'
       ? WORKSHOP_CATALOG
@@ -56,6 +58,19 @@ export default function WorkshopAndAudioPanel({
     setMuted(m);
   };
 
+  // Upload any custom PNG/JPG object/furniture onto the map
+  const handlePropImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (typeof ev.target?.result === 'string') {
+        onSpawnImageProp(file.name.replace(/\.[^/.]+$/, ''), ev.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <aside className="w-[310px] h-full bg-[#101014]/95 backdrop-blur-xl border-r border-zinc-800/90 flex flex-col z-20 select-none">
       {/* Left Navigation Tabs */}
@@ -69,7 +84,7 @@ export default function WorkshopAndAudioPanel({
           }`}
         >
           <Boxes className="w-4 h-4" />
-          <span>Workshop</span>
+          <span>Cenário</span>
         </button>
 
         <button
@@ -93,7 +108,7 @@ export default function WorkshopAndAudioPanel({
           }`}
         >
           <FileSearch className="w-4 h-4" />
-          <span>Pistas 3D</span>
+          <span>Pistas</span>
         </button>
 
         <button
@@ -105,23 +120,53 @@ export default function WorkshopAndAudioPanel({
           }`}
         >
           <Volume2 className="w-4 h-4" />
-          <span>Soundboard</span>
+          <span>Áudio</span>
         </button>
       </div>
 
       {/* Tab Content Area */}
       <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
-        {/* TAB 1: STEAM WORKSHOP ASSET SPAWNER */}
+        {/* TAB 1: MAPA, TOKENS & WORKSHOP */}
         {activeTab === 'workshop' && (
           <div className="space-y-3">
+            {/* Quick Master Import Actions */}
+            <div className="p-2.5 rounded-xl bg-zinc-950 border border-amber-500/40 space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-amber-300">
+                Personalizar Mesa (Estilo Segredo na Floresta)
+              </div>
+              <button
+                onClick={onOpenMapModal}
+                className="w-full py-2 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+              >
+                <Map className="w-3.5 h-3.5" />
+                🗺️ Subir Meu Mapa ou Trocar Cenário
+              </button>
+
+              <button
+                onClick={onOpenTokenModal}
+                className="w-full py-2 px-3 rounded-lg bg-red-950/70 hover:bg-red-900/80 border border-red-500/50 text-red-100 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                🖼️ Criar Token / Trocar Foto de Personagem
+              </button>
+
+              <label className="w-full py-1.5 px-3 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition">
+                <Upload className="w-3.5 h-3.5 text-amber-400" />
+                🪑 Subir Imagem de Objeto / Móvel no Mapa
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePropImageUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
                 <Boxes className="w-3.5 h-3.5 text-amber-400" />
-                Biblioteca / Workshop 3D
+                Catálogo Rápido (O Segredo na Floresta)
               </h3>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                Instancie criaturas paranormais, móveis, símbolos ocultistas e velas direto na mesa 3D.
-              </p>
             </div>
 
             {/* Category Pills */}
@@ -168,7 +213,7 @@ export default function WorkshopAndAudioPanel({
                     className="shrink-0 px-2.5 py-1.5 rounded-lg bg-zinc-950 hover:bg-amber-950/80 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1 transition"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
-                    Spawnar
+                    Colocar
                   </button>
                 </div>
               ))}
@@ -176,19 +221,94 @@ export default function WorkshopAndAudioPanel({
           </div>
         )}
 
-        {/* TAB 2: FOG OF WAR, DOOR LOCK & PARANORMAL RITUAL PARTICLES */}
+        {/* TAB 2: FOG OF WAR & PARANORMAL RITUAL PARTICLES */}
         {activeTab === 'fog_rituals' && (
           <div className="space-y-4">
-            {/* Paranormal Ritual Particle Emitters */}
+            {/* Fog of War Controls */}
+            <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-violet-400" />
+                  Modo de Visão & Sombra Preta
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={() => setFogMode('reveal_all')}
+                  className={`p-2 rounded-lg border text-xs font-bold transition ${
+                    fogMode === 'reveal_all'
+                      ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  ☀️ Mapa Aberto (Sem Sombra)
+                </button>
+                <button
+                  onClick={() => setFogMode('dynamic')}
+                  className={`p-2 rounded-lg border text-xs font-bold transition ${
+                    fogMode === 'dynamic'
+                      ? 'bg-violet-950/80 border-violet-500 text-violet-200'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  🔦 Luz & Sombra (Portas)
+                </button>
+              </div>
+
+              {role === 'gm' && (
+                <>
+                  <div className="text-[10px] font-mono uppercase text-zinc-400 pt-1">
+                    Pincel Manual de Sombra (Mestre):
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() =>
+                        setFogMode(fogMode === 'brush_reveal' ? 'dynamic' : 'brush_reveal')
+                      }
+                      className={`p-2 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition ${
+                        fogMode === 'brush_reveal'
+                          ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                      }`}
+                    >
+                      <Paintbrush className="w-3.5 h-3.5" />
+                      Pintar Luz
+                    </button>
+                    <button
+                      onClick={() =>
+                        setFogMode(fogMode === 'brush_hide' ? 'dynamic' : 'brush_hide')
+                      }
+                      className={`p-2 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition ${
+                        fogMode === 'brush_hide'
+                          ? 'bg-red-950/90 border-red-400 text-red-200'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                      }`}
+                    >
+                      <Paintbrush className="w-3.5 h-3.5" />
+                      Pintar Sombra
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setManualRoom2Revealed(!manualRoom2Revealed)}
+                    className="w-full py-1.5 px-3 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-semibold text-zinc-200 transition"
+                  >
+                    {manualRoom2Revealed
+                      ? '🌑 Cobrir Sala Leste com Sombra'
+                      : '🌕 Revelar Sala Leste Inteira'}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Paranormal Ritual Emitters */}
             <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5">
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  Efeitos de Rituais & Partículas 3D
+                  Efeitos Visuais de Rituais
                 </h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">
-                  Dispare auras, sigilos no chão e vórtices de partículas dos 5 elementos no token ativo.
-                </p>
               </div>
 
               <div className="grid grid-cols-1 gap-1.5">
@@ -204,178 +324,56 @@ export default function WorkshopAndAudioPanel({
                   >
                     <div>
                       <div className="text-xs font-bold" style={{ color: theme.accent }}>
-                        ✨ Manifesto de {theme.name}
+                        ✨ Símbolo de {theme.name}
                       </div>
                       <div className="text-[10px] text-zinc-300 line-clamp-1">
                         {theme.quote}
                       </div>
                     </div>
                     <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-black/50 text-zinc-200">
-                      Disparar
+                      Ativar
                     </span>
                   </button>
                 ))}
               </div>
             </div>
-
-            {/* Fog of War & Door Controls */}
-            <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5 text-violet-400" />
-                  Névoa de Guerra (Fog of War)
-                </h3>
-                <span className="text-[10px] font-mono text-amber-400">Raycasting 360°</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  onClick={() => setFogMode('dynamic')}
-                  className={`p-2 rounded-lg border text-xs font-bold transition ${
-                    fogMode === 'dynamic'
-                      ? 'bg-violet-950/80 border-violet-500 text-violet-200'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-400'
-                  }`}
-                >
-                  🔦 Visão Dinâmica (LoS)
-                </button>
-                <button
-                  onClick={() => setFogMode('reveal_all')}
-                  className={`p-2 rounded-lg border text-xs font-bold transition ${
-                    fogMode === 'reveal_all'
-                      ? 'bg-amber-950/80 border-amber-500 text-amber-200'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-400'
-                  }`}
-                >
-                  ☀️ Revelar Tudo
-                </button>
-              </div>
-
-              {role === 'gm' && (
-                <>
-                  <div className="text-[10px] font-mono uppercase text-zinc-400 pt-1">
-                    Ferramentas Manuais do Mestre (GM):
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() =>
-                        setFogMode(fogMode === 'brush_reveal' ? 'dynamic' : 'brush_reveal')
-                      }
-                      className={`p-2 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition ${
-                        fogMode === 'brush_reveal'
-                          ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                      }`}
-                    >
-                      <Paintbrush className="w-3.5 h-3.5" />
-                      Pincel Revelar
-                    </button>
-                    <button
-                      onClick={() =>
-                        setFogMode(fogMode === 'brush_hide' ? 'dynamic' : 'brush_hide')
-                      }
-                      className={`p-2 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 transition ${
-                        fogMode === 'brush_hide'
-                          ? 'bg-red-950/90 border-red-400 text-red-200'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                      }`}
-                    >
-                      <Paintbrush className="w-3.5 h-3.5" />
-                      Pincel Ocultar
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => setManualRoom2Revealed(!manualRoom2Revealed)}
-                    className="w-full py-1.5 px-3 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs font-semibold text-zinc-200 transition"
-                  >
-                    {manualRoom2Revealed
-                      ? '🌑 Ocultar Sala 2 (Voltar para Sombra Preta)'
-                      : '🌕 Revelar Sala 2 Inteira Manualmente'}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setDoorLocked(!doorLocked);
-                      soundEngine.playSFX('door_locked');
-                    }}
-                    className={`w-full py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                      doorLocked
-                        ? 'bg-red-950/80 border-red-500/60 text-red-200'
-                        : 'bg-emerald-950/80 border-emerald-500/60 text-emerald-200'
-                    }`}
-                  >
-                    {doorLocked ? (
-                      <>
-                        <Lock className="w-3.5 h-3.5" /> Porta Central: TRANCADA (Destrancar)
-                      </>
-                    ) : (
-                      <>
-                        <Unlock className="w-3.5 h-3.5" /> Porta Central: DESTRANCADA (Trancar)
-                      </>
-                    )}
-                  </button>
-                </>
-              )}
-            </div>
           </div>
         )}
 
-        {/* TAB 3: INSPECTABLE 3D HANDOUTS & CLUES */}
+        {/* TAB 3: INSPECTABLE HANDOUTS & CLUES */}
         {activeTab === 'clues' && (
           <div className="space-y-3">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
                 <FileSearch className="w-3.5 h-3.5 text-amber-400" />
-                Documentos & Pistas 3D na Cena
+                Documentos & Pistas na Mesa
               </h3>
               <p className="text-[11px] text-zinc-400 mt-0.5">
-                Passe a mãozinha sobre os objetos brilhantes nas mesas e aperte{' '}
-                <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-amber-300 font-mono text-[10px]">
-                  ESPAÇO
-                </kbd>{' '}
-                ou inspecione abaixo:
+                Clique nos documentos brilhantes sobre o mapa (ou arraste-os no Modo Mestre):
               </p>
             </div>
 
             <div className="space-y-2">
-              {handouts.map((h) => {
-                const isSecretRoom = h.room === 2 && role !== 'gm' && !manualRoom2Revealed && !h.revealedToAll;
-                return (
-                  <div
-                    key={h.id}
-                    className="p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-xs font-bold text-zinc-100">
-                          {isSecretRoom ? '❓ Pista Oculta na Escuridão (Sala 2)' : h.title}
-                        </span>
-                        <p className="text-[10px] text-zinc-400">{h.subtitle}</p>
-                      </div>
-                      {h.revealedToAll && (
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                          Compartilhada
-                        </span>
-                      )}
+              {handouts.map((h) => (
+                <div
+                  key={h.id}
+                  className="p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-1.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-bold text-zinc-100">{h.title}</span>
+                      <p className="text-[10px] text-zinc-400">{h.subtitle}</p>
                     </div>
-
-                    <button
-                      disabled={isSecretRoom}
-                      onClick={() => onInspectHandout(h)}
-                      className={`w-full py-1.5 rounded-lg text-xs font-bold border transition ${
-                        isSecretRoom
-                          ? 'bg-zinc-950 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                          : 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/50 text-amber-300'
-                      }`}
-                    >
-                      {isSecretRoom
-                        ? 'Abra a porta para iluminar a Sala 2 primeiro'
-                        : '🔍 Inspecionar em 3D (Frente & Verso)'}
-                    </button>
                   </div>
-                );
-              })}
+
+                  <button
+                    onClick={() => onInspectHandout(h)}
+                    className="w-full py-1.5 rounded-lg text-xs font-bold border bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/50 text-amber-300 transition"
+                  >
+                    🔍 Inspecionar Documento (Frente & Verso)
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -387,7 +385,7 @@ export default function WorkshopAndAudioPanel({
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
                   <Volume2 className="w-3.5 h-3.5 text-amber-400" />
-                  Trilhas de Clima & Tensão
+                  Trilhas de O Segredo na Floresta
                 </h3>
                 <button
                   onClick={handleMute}
@@ -415,10 +413,10 @@ export default function WorkshopAndAudioPanel({
 
               <div className="space-y-1.5">
                 {[
-                  { id: 'investigacao', label: '🕵️ Investigação Noir (Sub-Drone)', desc: 'Grave tenso contínuo para exploração' },
-                  { id: 'membrana', label: '👁️ Membrana Fragilizada', desc: 'Acorde dissonante do Outro Lado' },
-                  { id: 'combate', label: '⚔️ Combate Paranormal (132 BPM)', desc: 'Pulso agressivo industrial' },
-                  { id: 'chuva', label: '🌧️ Chuva Noturna na Mansão', desc: 'Ruído acústico de tempestade' },
+                  { id: 'investigacao', label: '🕵️ Investigação em Carpazinha', desc: 'Grave tenso contínuo para exploração' },
+                  { id: 'membrana', label: '🌀 Hipnose de Santo Berço', desc: 'Acorde dissonante do Labirinto' },
+                  { id: 'combate', label: '⚔️ Combate contra O Carente', desc: 'Pulso agressivo de tensão' },
+                  { id: 'chuva', label: '🌧️ Chuva & Vento na Floresta', desc: 'Ruído acústico de tempestade' },
                 ].map((tr) => {
                   const isPlaying = activeTrack === tr.id;
                   return (
@@ -454,10 +452,10 @@ export default function WorkshopAndAudioPanel({
                   { id: 'door_knock', label: '🚪 Batida na Porta' },
                   { id: 'door_creak', label: '🗝️ Porta Rangendo' },
                   { id: 'glass_break', label: '🪟 Vidro Quebrando' },
-                  { id: 'whispers', label: '👻 Sussurros' },
+                  { id: 'whispers', label: '👻 Vozes da Floresta' },
                   { id: 'heartbeat', label: '💓 Batimento Cardíaco' },
                   { id: 'door_locked', label: '🔒 Tranca Metálica' },
-                  { id: 'ritual', label: '✨ Pulso de Ritual' },
+                  { id: 'ritual', label: '✨ Pulso da Espiral' },
                   { id: 'dice_roll', label: '🎲 Dados na Mesa' },
                 ].map((sfx) => (
                   <button
