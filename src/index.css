@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #09090b;
+    color: #f4f4f5;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+}
+
+/* Custom Scrollbar for Dark Paranormal UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #dc2626;
+}
+
+/* Sanity Glitch & Vignette Effects (Perturbado / Enlouquecendo) */
+@keyframes sanityPulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes sanityGlitch {
+  0%, 100% {
+    filter: none;
+  }
+  15% {
+    filter: hue-rotate(15deg) contrast(1.15);
+  }
+  16% {
+    filter: invert(0.08) translate(2px, -1px);
+  }
+  17% {
+    filter: none;
+  }
+  65% {
+    filter: saturate(1.4) contrast(1.2);
+  }
+}
+
+.sanity-vignette-perturbed {
+  background: radial-gradient(circle at center, transparent 52%, rgba(76, 29, 149, 0.38) 82%, rgba(15, 23, 42, 0.85) 100%);
+  animation: sanityPulse 4s ease-in-out infinite;
+}
+
+.sanity-vignette-insane {
+  background: radial-gradient(circle at center, transparent 32%, rgba(124, 58, 237, 0.52) 68%, rgba(220, 38, 38, 0.45) 85%, rgba(0, 0, 0, 0.96) 100%);
+  animation: sanityPulse 1.6s ease-in-out infinite;
+}
+
+.screen-insane-glitch {
+  animation: sanityGlitch 3.5s infinite;
+}
+
+/* 3D Card Flip Utility for Handout Inspection */
+.perspective-1000 {
+  perspective: 1200px;
+}
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
