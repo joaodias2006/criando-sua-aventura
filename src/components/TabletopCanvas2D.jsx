@@ -21,10 +21,14 @@ import {
   RotateCcw,
   Lock,
   Unlock,
+  SlidersHorizontal,
+  ChevronUp,
+  ChevronDown,
+  Compass,
 } from 'lucide-react';
 
 export default function TabletopCanvas2D({
-  role, // 'gm' | 'arthur' | 'joui' | 'dante'
+  role,
   currentMap,
   onUpdateMap,
   onOpenMapModal,
@@ -36,7 +40,7 @@ export default function TabletopCanvas2D({
   handouts,
   setHandouts,
   onInspectHandout,
-  fogMode, // 'dynamic' | 'reveal_all' | 'brush_reveal' | 'brush_hide'
+  fogMode,
   setFogMode,
   manualRoom2Revealed,
   rollRequest,
@@ -51,29 +55,26 @@ export default function TabletopCanvas2D({
 
   // Master Map Builder Tool: 'interact' | 'draw_wall' | 'add_door' | 'erase'
   const [gmTool, setGmTool] = useState('interact');
+  const [showGmToolsDropdown, setShowGmToolsDropdown] = useState(false);
+  const [showBottomControls, setShowBottomControls] = useState(false);
   const [hoveredInfo, setHoveredInfo] = useState(null);
 
-  // Image cache for custom uploaded maps and token portraits
   const imageCacheRef = useRef(new Map());
-  // Offscreen static floor cache so procedural maps render at 60fps with zero CPU overhead
   const floorCacheRef = useRef({ theme: null, bgUrl: null, canvas: null });
-  // Offscreen Fog of War canvas (512x307) & Manual GM Paint Mask
   const fogCanvasRef = useRef(null);
   const manualMaskCanvasRef = useRef(null);
 
-  // Camera Pan & Zoom state (world coordinates center + pixels per meter scale)
   const cameraRef = useRef({
     centerX: 0,
     centerZ: 0,
-    zoom: 1.0, // multiplier over auto-fit scale
+    zoom: 1.0,
   });
 
-  // Live animation state for dice, particles, dragged objects, and wall/door drawing
   const animRef = useRef({
     mouseWorld: { x: -2, z: 0 },
     mouseScreen: { x: 400, y: 300 },
     isGrabbing: false,
-    interactionType: null, // 'drag_token' | 'drag_door' | 'drag_clue' | 'drag_prop' | 'pan_camera' | 'draw_wall' | 'add_door' | 'paint_fog'
+    interactionType: null, // 'drag_token' | 'aim_flashlight' | 'drag_door' | 'drag_clue' | 'drag_prop' | 'pan_camera' | 'draw_wall' | 'add_door' | 'paint_fog'
     activeId: null,
     dragStartWorld: { x: 0, z: 0 },
     drawStartWorld: null,
@@ -85,7 +86,6 @@ export default function TabletopCanvas2D({
     ritualBursts: [],
   });
 
-  // Keep latest props accessible in 60fps RAF loop
   const stateRef = useRef({
     role,
     currentMap,
@@ -128,7 +128,6 @@ export default function TabletopCanvas2D({
     gmTool,
   ]);
 
-  // Helper: Load and cache HTMLImageElement from URL / Data URI
   const getCachedImage = (url) => {
     if (!url) return null;
     const cache = imageCacheRef.current;
@@ -141,7 +140,6 @@ export default function TabletopCanvas2D({
     cache.set(url, entry);
     img.onload = () => {
       entry.loaded = true;
-      // Invalidate floor cache if this was a custom map background
       if (stateRef.current.currentMap?.bgImageUrl === url) {
         floorCacheRef.current.theme = null;
       }
@@ -150,7 +148,6 @@ export default function TabletopCanvas2D({
     return null;
   };
 
-  // Keyboard shortcuts: Spacebar (Inspect hovered clue), Tab/Alt (Ruler)
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'Tab' || e.key === 'Alt') {
@@ -178,7 +175,6 @@ export default function TabletopCanvas2D({
     };
   }, [onInspectHandout]);
 
-  // Spawn lightweight 2D animated dice on table when rollRequest triggers
   useEffect(() => {
     if (!rollRequest) return;
     soundEngine.playSFX('dice_roll');
@@ -196,7 +192,6 @@ export default function TabletopCanvas2D({
     }));
   }, [rollRequest]);
 
-  // Spawn lightweight 2D ritual aura burst when activeRitualEffect triggers
   useEffect(() => {
     if (!activeRitualEffect) return;
     soundEngine.playSFX('ritual');
@@ -220,7 +215,6 @@ export default function TabletopCanvas2D({
     });
   }, [activeRitualEffect]);
 
-  // Clear manual fog mask when switching maps or toggling manualRoom2Revealed
   useEffect(() => {
     if (!manualMaskCanvasRef.current) return;
     const ctx = manualMaskCanvasRef.current.getContext('2d');
@@ -231,18 +225,17 @@ export default function TabletopCanvas2D({
     }
   }, [manualRoom2Revealed, currentMap?.id]);
 
-  // Build Offscreen Procedural Map Artwork ("O Segredo na Floresta" themes)
+  // Procedural Map Artwork Builder
   const buildStaticMapArtwork = (mapConfig) => {
     const off = document.createElement('canvas');
     off.width = 1200;
-    off.height = 720; // 15m x 9m aspect ratio (80px per meter)
+    off.height = 720;
     const ctx = off.getContext('2d');
     const theme = mapConfig.theme || 'wood_mansion';
 
     const wToPxX = (wx) => ((wx - MAP_BOUNDS.minX) / MAP_BOUNDS.width) * off.width;
     const wToPxY = (wz) => ((wz - MAP_BOUNDS.minZ) / MAP_BOUNDS.height) * off.height;
 
-    // If user uploaded a custom background image and it's loaded, draw it!
     if (mapConfig.bgImageUrl) {
       const customImg = getCachedImage(mapConfig.bgImageUrl);
       if (customImg) {
@@ -254,17 +247,14 @@ export default function TabletopCanvas2D({
     }
 
     if (theme === 'floresta') {
-      // Floresta de Névoa & Santo Berço
       ctx.fillStyle = '#111c14';
       ctx.fillRect(0, 0, off.width, off.height);
 
-      // Muddy forest path & lodo trail
       ctx.fillStyle = '#1e1914';
       ctx.beginPath();
       ctx.ellipse(600, 360, 540, 140, 0.08, 0, Math.PI * 2);
       ctx.fill();
 
-      // Cabin Wooden Floor on the East side (x: 1.5 to 6.2, z: -3.2 to 3.2)
       const cx1 = wToPxX(1.5);
       const cy1 = wToPxY(-3.2);
       const cw = wToPxX(6.2) - cx1;
@@ -272,7 +262,6 @@ export default function TabletopCanvas2D({
       ctx.fillStyle = '#291b12';
       ctx.fillRect(cx1, cy1, cw, ch);
 
-      // Spiral Stone of Santo Berço inside Cabin
       ctx.strokeStyle = '#a1a1aa';
       ctx.lineWidth = 4;
       const sx = wToPxX(4.0);
@@ -287,7 +276,6 @@ export default function TabletopCanvas2D({
       }
       ctx.stroke();
 
-      // Pine Trees around perimeter
       const treeCoords = [
         [-6.2, -3.4],
         [-4.5, -3.6],
@@ -310,11 +298,9 @@ export default function TabletopCanvas2D({
         ctx.stroke();
       });
     } else if (theme === 'sanatorio') {
-      // Sanatório Abandonado de Carpazinha
       ctx.fillStyle = '#182226';
       ctx.fillRect(0, 0, off.width, off.height);
 
-      // Cracked hospital tiles
       ctx.strokeStyle = 'rgba(255,255,255,0.06)';
       ctx.lineWidth = 1;
       for (let x = 0; x < off.width; x += 40) {
@@ -330,7 +316,6 @@ export default function TabletopCanvas2D({
         ctx.stroke();
       }
 
-      // Rusty hospital beds & blood trails
       ctx.fillStyle = '#334155';
       ctx.fillRect(wToPxX(-6.2), wToPxY(-3.6), 140, 75);
       ctx.fillRect(wToPxX(-6.2), wToPxY(2.2), 140, 75);
@@ -339,11 +324,9 @@ export default function TabletopCanvas2D({
       ctx.arc(wToPxX(2.5), wToPxY(0.5), 95, 0, Math.PI * 2);
       ctx.fill();
     } else if (theme === 'suvaco_seco') {
-      // Bar Suvaco Seco (Gaudérios Abutres)
       ctx.fillStyle = '#26170e';
       ctx.fillRect(0, 0, off.width, off.height);
 
-      // Wood planks
       ctx.strokeStyle = 'rgba(0,0,0,0.35)';
       for (let y = 0; y < off.height; y += 28) {
         ctx.beginPath();
@@ -352,43 +335,34 @@ export default function TabletopCanvas2D({
         ctx.stroke();
       }
 
-      // Long Bar Counter
       ctx.fillStyle = '#451a03';
       ctx.fillRect(wToPxX(-6.5), wToPxY(-3.8), 420, 75);
-      // Pool Table (Mesa de Sinuca verde)
       ctx.fillStyle = '#451a03';
       ctx.fillRect(wToPxX(-3.2), wToPxY(0.8), 190, 110);
       ctx.fillStyle = '#15803d';
       ctx.fillRect(wToPxX(-3.2) + 12, wToPxY(0.8) + 12, 166, 86);
     } else {
-      // Default: Mansão & Escritório de Investigação em Carpazinha
       ctx.fillStyle = '#23160f';
       ctx.fillRect(0, 0, off.width, off.height);
 
-      // Detailed wood planks
       for (let r = 0; r < 24; r++) {
         const y = r * 30;
         ctx.fillStyle = r % 2 === 0 ? '#271811' : '#21140d';
         ctx.fillRect(0, y, off.width, 29);
       }
 
-      // Worn crimson rug in Room 1
       ctx.fillStyle = '#4c1d24';
       ctx.fillRect(wToPxX(-5.8), wToPxY(-1.2), 310, 220);
       ctx.strokeStyle = '#9f1239';
       ctx.lineWidth = 3;
       ctx.strokeRect(wToPxX(-5.8) + 8, wToPxY(-1.2) + 8, 294, 204);
 
-      // Investigation Desk in Room 1 (West)
       ctx.fillStyle = '#3b1f0e';
       ctx.fillRect(wToPxX(-4.1), wToPxY(-3.2), 135, 185);
-      // South Side Table
       ctx.fillRect(wToPxX(-2.4), wToPxY(1.7), 96, 96);
-      // West Bookshelf
       ctx.fillStyle = '#291509';
       ctx.fillRect(wToPxX(-7.4), wToPxY(-2.8), 45, 250);
 
-      // Room 2 (East): Glowing Occult Transcendence & Spiral Circle on Floor
       const cx = wToPxX(3.8);
       const cy = wToPxY(0.2);
       ctx.save();
@@ -401,7 +375,6 @@ export default function TabletopCanvas2D({
         ctx.arc(cx, cy, rad, 0, Math.PI * 2);
         ctx.stroke();
       });
-      // Hexagram
       for (let k = 0; k < 2; k++) {
         ctx.beginPath();
         for (let i = 0; i <= 3; i++) {
@@ -415,7 +388,6 @@ export default function TabletopCanvas2D({
       }
       ctx.restore();
 
-      // Stone Altar in Room 2
       ctx.fillStyle = '#27272a';
       ctx.fillRect(wToPxX(3.9), wToPxY(-3.2), 105, 165);
     }
@@ -423,7 +395,7 @@ export default function TabletopCanvas2D({
     return off;
   };
 
-  // Main 60FPS 2D Tactical Tabletop Render & Interaction Loop
+  // Main 60FPS Render Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -442,11 +414,10 @@ export default function TabletopCanvas2D({
       manualMaskCanvasRef.current = mc;
     }
 
-    // Coordinate conversion helpers between Screen Pixels and World Meters (-7.5..7.5, -4.5..4.5)
     const getTransformMetrics = () => {
       const cw = canvas.width;
       const ch = canvas.height;
-      const baseScale = Math.min((cw - 48) / MAP_BOUNDS.width, (ch - 48) / MAP_BOUNDS.height);
+      const baseScale = Math.min((cw - 24) / MAP_BOUNDS.width, (ch - 24) / MAP_BOUNDS.height);
       const scale = baseScale * cameraRef.current.zoom;
       const originX = cw / 2 - cameraRef.current.centerX * scale;
       const originY = ch / 2 - cameraRef.current.centerZ * scale;
@@ -487,7 +458,6 @@ export default function TabletopCanvas2D({
       mCtx.restore();
     };
 
-    // Distance from point (px, pz) to segment (x1, z1)-(x2, z2)
     const distToSegment = (px, pz, x1, z1, x2, z2) => {
       const A = px - x1;
       const B = pz - z1;
@@ -511,7 +481,6 @@ export default function TabletopCanvas2D({
       return Math.hypot(px - xx, pz - zz);
     };
 
-    // Pointer Events
     const getPointerWorld = (e) => {
       const rect = canvas.getBoundingClientRect();
       const sx = e.clientX - rect.left;
@@ -528,7 +497,6 @@ export default function TabletopCanvas2D({
       const st = stateRef.current;
       const map = st.currentMap;
 
-      // Middle click, Right click (when not on a door), or Shift+Click -> Pan Camera
       if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
         animRef.current.interactionType = 'pan_camera';
         animRef.current.panStartScreen = { x: sx, y: sy };
@@ -536,7 +504,6 @@ export default function TabletopCanvas2D({
         return;
       }
 
-      // Right-click on a Door -> Toggle Lock (GM only) or Pan Camera
       if (e.button === 2) {
         const hitDoor = (map.doors || []).find((d) => {
           const totalAngle = (d.baseAngle || 0) + (d.angleRad || 0);
@@ -558,8 +525,20 @@ export default function TabletopCanvas2D({
                 : '🔓 Porta Destrancada pelo Mestre!'
             );
           } else {
-            onNotification('⚠️ Apenas o Mestre pode trancar/destrancar portas com o botão direito.');
+            onNotification('⚠️ Apenas o Mestre pode trancar/destrancar portas.');
           }
+          return;
+        }
+
+        // Right-click on empty space aims the selected character's flashlight!
+        const selTok = st.tokens.find((t) => t.id === st.selectedTokenId);
+        if (selTok && (st.role === 'gm' || selTok.owner === st.role)) {
+          const newRot = Math.atan2(wz - selTok.z, wx - selTok.x);
+          setTokens((prev) =>
+            prev.map((t) => (t.id === selTok.id ? { ...t, rotation: newRot } : t))
+          );
+          animRef.current.interactionType = 'aim_flashlight';
+          animRef.current.activeId = selTok.id;
           return;
         }
 
@@ -572,7 +551,6 @@ export default function TabletopCanvas2D({
       if (e.button !== 0) return;
       animRef.current.isGrabbing = true;
 
-      // GM Fog Brush Mode
       if (
         st.role === 'gm' &&
         (st.fogMode === 'brush_reveal' || st.fogMode === 'brush_hide')
@@ -582,7 +560,6 @@ export default function TabletopCanvas2D({
         return;
       }
 
-      // GM Map Builder Tools: Draw Wall | Add Door | Erase
       if (st.role === 'gm' && st.gmTool === 'draw_wall') {
         animRef.current.interactionType = 'draw_wall';
         animRef.current.drawStartWorld = { x: Number(wx.toFixed(2)), z: Number(wz.toFixed(2)) };
@@ -596,7 +573,6 @@ export default function TabletopCanvas2D({
       }
 
       if (st.role === 'gm' && st.gmTool === 'erase') {
-        // Check if clicking near a door to delete it
         const doorToDelete = (map.doors || []).find((d) => {
           const totalAngle = (d.baseAngle || 0) + (d.angleRad || 0);
           const endX = d.hingeX + Math.sin(totalAngle) * (d.length || 2);
@@ -612,7 +588,6 @@ export default function TabletopCanvas2D({
           return;
         }
 
-        // Check if clicking near a wall segment to delete it
         const wallToDelete = (map.walls || []).find(
           (w) => distToSegment(wx, wz, w.x1, w.z1, w.x2, w.z2) < 0.4
         );
@@ -625,7 +600,6 @@ export default function TabletopCanvas2D({
           return;
         }
 
-        // Check if clicking a spawned prop
         const propToDelete = (st.spawnedProps || []).find(
           (p) => Math.hypot(wx - p.x, wz - p.z) < 0.85
         );
@@ -637,16 +611,28 @@ export default function TabletopCanvas2D({
         return;
       }
 
+      // Check if clicking the Flashlight Aim Handle of the selected token
+      const selTok = st.tokens.find((t) => t.id === st.selectedTokenId);
+      if (selTok && selTok.flashlightOn !== false) {
+        const handleX = selTok.x + Math.cos(selTok.rotation || 0) * 1.1;
+        const handleZ = selTok.z + Math.sin(selTok.rotation || 0) * 1.1;
+        if (Math.hypot(wx - handleX, wz - handleZ) < 0.42) {
+          animRef.current.interactionType = 'aim_flashlight';
+          animRef.current.activeId = selTok.id;
+          return;
+        }
+      }
+
       // 1. Check if clicking a Token
       const clickedToken = [...st.tokens]
         .reverse()
-        .find((t) => Math.hypot(wx - t.x, wz - t.z) < 0.65 * (t.sizeSquares || 1));
+        .find((t) => Math.hypot(wx - t.x, wz - t.z) < 0.72 * (t.sizeSquares || 1));
 
       if (clickedToken) {
         setSelectedTokenId(clickedToken.id);
         if (st.role !== 'gm' && clickedToken.owner !== st.role) {
           onNotification(
-            `🚫 No modo Jogador (${st.role.toUpperCase()}), você só pode mover seu próprio personagem!`
+            `🚫 No modo Jogador, você só pode mover seu próprio personagem!`
           );
           return;
         }
@@ -656,7 +642,7 @@ export default function TabletopCanvas2D({
         return;
       }
 
-      // 2. Check if clicking an Interactive Door (drag handle / door leaf)
+      // 2. Check if clicking an Interactive Door
       const clickedDoor = (map.doors || []).find((d) => {
         const totalAngle = (d.baseAngle || 0) + (d.angleRad || 0);
         const endX = d.hingeX + Math.sin(totalAngle) * (d.length || 2);
@@ -667,7 +653,7 @@ export default function TabletopCanvas2D({
       if (clickedDoor) {
         if (clickedDoor.locked && st.role !== 'gm') {
           soundEngine.playSFX('door_locked');
-          onNotification('🔒 Esta porta está TRANCADA! Peça ao Mestre para destrancar.');
+          onNotification('🔒 Esta porta está TRANCADA!');
           return;
         }
         soundEngine.playSFX('door_creak');
@@ -679,7 +665,6 @@ export default function TabletopCanvas2D({
       // 3. Check if clicking an Inspectable Handout / Clue
       const clickedClue = st.handouts.find((h) => Math.hypot(wx - h.x, wz - h.z) < 0.55);
       if (clickedClue) {
-        // In GM mode, dragging moves the clue; clicking without dragging opens it
         animRef.current.interactionType = 'drag_clue';
         animRef.current.activeId = clickedClue.id;
         animRef.current.dragStartWorld = { x: wx, z: wz };
@@ -698,7 +683,7 @@ export default function TabletopCanvas2D({
         }
       }
 
-      // Otherwise: Pan Camera smoothly
+      // Otherwise: Pan Camera
       animRef.current.interactionType = 'pan_camera';
       animRef.current.panStartScreen = { x: sx, y: sy };
       animRef.current.panStartCenter = { ...cameraRef.current };
@@ -724,6 +709,18 @@ export default function TabletopCanvas2D({
         return;
       }
 
+      if (mode === 'aim_flashlight' && animRef.current.activeId) {
+        const tokId = animRef.current.activeId;
+        setTokens((prev) =>
+          prev.map((t) => {
+            if (t.id !== tokId) return t;
+            const newRot = Math.atan2(wz - t.z, wx - t.x);
+            return { ...t, rotation: newRot };
+          })
+        );
+        return;
+      }
+
       if (mode === 'drag_token' && animRef.current.activeId) {
         const tokId = animRef.current.activeId;
         const clampedX = Math.max(-7.1, Math.min(7.1, wx));
@@ -734,7 +731,7 @@ export default function TabletopCanvas2D({
             if (t.id !== tokId) return t;
             const dx = clampedX - t.x;
             const dz = clampedZ - t.z;
-            const rot = Math.hypot(dx, dz) > 0.05 ? Math.atan2(dz, dx) : t.rotation;
+            const rot = Math.hypot(dx, dz) > 0.06 ? Math.atan2(dz, dx) : t.rotation;
             return {
               ...t,
               x: Number(clampedX.toFixed(2)),
@@ -756,7 +753,6 @@ export default function TabletopCanvas2D({
           wz - targetDoor.hingeZ
         );
         let relAngle = desiredWorldAngle - (targetDoor.baseAngle || 0);
-        // Normalize to [-PI, PI] and clamp within realistic door swing [-2.1, +2.1]
         relAngle = Math.atan2(Math.sin(relAngle), Math.cos(relAngle));
         relAngle = Math.max(-2.1, Math.min(2.1, relAngle));
 
@@ -791,13 +787,13 @@ export default function TabletopCanvas2D({
         return;
       }
 
-      // Hover detection for clues & doors when idle
+      // Hover detection
       const hoveredClue = st.handouts.find((h) => Math.hypot(wx - h.x, wz - h.z) < 0.55);
       if (hoveredClue) {
         animRef.current.hoveredClueId = hoveredClue.id;
         setHoveredInfo({
           title: `🔍 Pista: ${hoveredClue.title}`,
-          hint: 'Clique ou pressione [ESPAÇO] para inspecionar Frente & Verso',
+          hint: 'Clique ou aperte [ESPAÇO] para ler Frente & Verso',
         });
         return;
       }
@@ -811,10 +807,8 @@ export default function TabletopCanvas2D({
       });
       if (hoveredDoor) {
         setHoveredInfo({
-          title: hoveredDoor.locked
-            ? '🔒 Porta Trancada'
-            : '🚪 Porta Interativa (Arraste com a Mãozinha)',
-          hint: 'Segure e arraste para entreabrir fresta ou escancarar • Botão Direito (GM): Trancar/Destrancar',
+          title: hoveredDoor.locked ? '🔒 Porta Trancada' : '🚪 Porta Interativa',
+          hint: 'Segure e arraste para abrir fresta • Botão Direito (GM): Trancar',
         });
         return;
       }
@@ -828,7 +822,6 @@ export default function TabletopCanvas2D({
       const map = st.currentMap;
       const mode = animRef.current.interactionType;
 
-      // Finish drawing new Wall in GM Mode
       if (mode === 'draw_wall' && animRef.current.drawStartWorld) {
         const s = animRef.current.drawStartWorld;
         if (Math.hypot(wx - s.x, wz - s.z) > 0.35) {
@@ -840,11 +833,10 @@ export default function TabletopCanvas2D({
             z2: Number(wz.toFixed(2)),
           };
           onUpdateMap({ ...map, walls: [...(map.walls || []), newWall] });
-          onNotification('🧱 Nova parede adicionada ao mapa (bloqueia luz e visão)!');
+          onNotification('🧱 Parede adicionada!');
         }
       }
 
-      // Finish adding new Interactive Door in GM Mode
       if (mode === 'add_door' && animRef.current.drawStartWorld) {
         const s = animRef.current.drawStartWorld;
         const len = Math.max(1.2, Math.min(3.5, Math.hypot(wx - s.x, wz - s.z)));
@@ -859,10 +851,9 @@ export default function TabletopCanvas2D({
           locked: false,
         };
         onUpdateMap({ ...map, doors: [...(map.doors || []), newDoor] });
-        onNotification('🚪 Nova porta interativa colocada no mapa!');
+        onNotification('🚪 Porta adicionada!');
       }
 
-      // If clicked a clue without dragging it far, open the Inspector Modal!
       if (mode === 'drag_clue' && animRef.current.activeId) {
         const distMoved = Math.hypot(
           wx - animRef.current.dragStartWorld.x,
@@ -894,7 +885,6 @@ export default function TabletopCanvas2D({
     canvas.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('contextmenu', onContextMenu);
 
-    // 60FPS Render Loop
     let rafId;
     let lastTime = performance.now();
 
@@ -904,7 +894,6 @@ export default function TabletopCanvas2D({
       lastTime = now;
       const elapsed = now / 1000;
 
-      // Resize canvas to container if needed
       const parent = canvas.parentElement;
       if (parent && (canvas.width !== parent.clientWidth || canvas.height !== parent.clientHeight)) {
         canvas.width = parent.clientWidth;
@@ -915,7 +904,7 @@ export default function TabletopCanvas2D({
       const map = st.currentMap;
       const { cw, ch, scale } = getTransformMetrics();
 
-      // 1. Clear Background Table Surface
+      // 1. Clear Table Surface
       ctx.fillStyle = '#09090d';
       ctx.fillRect(0, 0, cw, ch);
 
@@ -923,15 +912,14 @@ export default function TabletopCanvas2D({
       const mapPixelW = MAP_BOUNDS.width * scale;
       const mapPixelH = MAP_BOUNDS.height * scale;
 
-      // Table drop shadow
       ctx.save();
       ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
       ctx.shadowBlur = 32;
       ctx.fillStyle = '#18120d';
-      ctx.fillRect(topLeft.x - 10, topLeft.y - 10, mapPixelW + 20, mapPixelH + 20);
+      ctx.fillRect(topLeft.x - 8, topLeft.y - 8, mapPixelW + 16, mapPixelH + 16);
       ctx.restore();
 
-      // 2. Draw Static or Custom Uploaded Map Artwork from Cache
+      // 2. Draw Map Floor Artwork
       if (
         floorCacheRef.current.theme !== map.theme ||
         floorCacheRef.current.bgUrl !== map.bgImageUrl ||
@@ -951,10 +939,10 @@ export default function TabletopCanvas2D({
         mapPixelH
       );
 
-      // 3. Draw Tactical 1.5m Square Grid (10x6 squares) if enabled
+      // 3. Draw Tactical 1.5m Grid
       if (map.gridEnabled !== false) {
         ctx.save();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${map.gridOpacity ?? 0.16})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${map.gridOpacity ?? 0.15})`;
         ctx.lineWidth = 1;
         for (let x = MAP_BOUNDS.minX; x <= MAP_BOUNDS.maxX + 0.01; x += 1.5) {
           const p1 = worldToScreen(x, MAP_BOUNDS.minZ);
@@ -975,7 +963,6 @@ export default function TabletopCanvas2D({
         ctx.restore();
       }
 
-      // Compute Current Obstacle Segments (Walls + Doors) for Line-of-Sight
       const activeSegments = buildActiveObstacleSegments(map.walls || [], map.doors || []);
       const viewerTokens = st.tokens.filter((t) => t.type === 'player');
       const liveViewers = viewerTokens.map((vt) => ({
@@ -985,7 +972,7 @@ export default function TabletopCanvas2D({
         flashlightOn: vt.flashlightOn !== false,
       }));
 
-      // 4. Draw Spawned Workshop Props (Desks, Blood, Spiral Sigils, Candles, Custom Images)
+      // 4. Draw Spawned Workshop Props
       (st.spawnedProps || []).forEach((prop) => {
         const p = worldToScreen(prop.x, prop.z);
         ctx.save();
@@ -1035,7 +1022,7 @@ export default function TabletopCanvas2D({
         ctx.restore();
       });
 
-      // 5. Draw Paranormal Ritual Particle Bursts
+      // 5. Draw Ritual Bursts
       for (let i = animRef.current.ritualBursts.length - 1; i >= 0; i--) {
         const rb = animRef.current.ritualBursts[i];
         rb.age += dt;
@@ -1071,7 +1058,6 @@ export default function TabletopCanvas2D({
         ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
 
-        // Inner highlight on wall
         ctx.save();
         ctx.strokeStyle = '#524137';
         ctx.lineWidth = Math.max(2, 0.06 * scale);
@@ -1083,7 +1069,6 @@ export default function TabletopCanvas2D({
       });
       ctx.restore();
 
-      // Interactive Doors with Hinge Swing Arc & Brass Handle
       (map.doors || []).forEach((d) => {
         const totalAngle = (d.baseAngle || 0) + (d.angleRad || 0);
         const len = d.length || 2.0;
@@ -1093,17 +1078,6 @@ export default function TabletopCanvas2D({
         const pHinge = worldToScreen(d.hingeX, d.hingeZ);
         const pEnd = worldToScreen(endX, endZ);
 
-        // Dotted swing arc preview
-        ctx.save();
-        ctx.strokeStyle = 'rgba(250, 204, 21, 0.22)';
-        ctx.setLineDash([4, 4]);
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(pHinge.x, pHinge.y, len * scale, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-
-        // Wooden Door Leaf
         ctx.save();
         ctx.strokeStyle = d.locked ? '#991b1b' : '#92400e';
         ctx.lineWidth = Math.max(7, 0.18 * scale);
@@ -1113,26 +1087,21 @@ export default function TabletopCanvas2D({
         ctx.lineTo(pEnd.x, pEnd.y);
         ctx.stroke();
 
-        // Hinge Pivot Pin
         ctx.fillStyle = '#a1a1aa';
         ctx.beginPath();
         ctx.arc(pHinge.x, pHinge.y, Math.max(4, 0.09 * scale), 0, Math.PI * 2);
         ctx.fill();
 
-        // Brass Doorknob Handle near end
         const knobX = d.hingeX + Math.sin(totalAngle) * (len * 0.82);
         const knobZ = d.hingeZ + Math.cos(totalAngle) * (len * 0.82);
         const pKnob = worldToScreen(knobX, knobZ);
         ctx.fillStyle = d.locked ? '#ef4444' : '#facc15';
-        ctx.shadowColor = d.locked ? '#ef4444' : '#facc15';
-        ctx.shadowBlur = 8;
         ctx.beginPath();
         ctx.arc(pKnob.x, pKnob.y, Math.max(5, 0.11 * scale), 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       });
 
-      // Preview line when GM is drawing a new wall or door
       if (
         (animRef.current.interactionType === 'draw_wall' ||
           animRef.current.interactionType === 'add_door') &&
@@ -1158,7 +1127,7 @@ export default function TabletopCanvas2D({
         ctx.restore();
       }
 
-      // 7. Draw Inspectable Handouts / Clues on Tables
+      // 7. Draw Inspectable Handouts / Clues
       st.handouts.forEach((clue) => {
         const isVisible =
           st.role === 'gm' ||
@@ -1178,24 +1147,106 @@ export default function TabletopCanvas2D({
 
         ctx.save();
         ctx.translate(p.x, p.y);
-        // Glowing golden aura
         ctx.strokeStyle = isHovered ? '#fef08a' : 'rgba(250, 204, 21, 0.65)';
         ctx.fillStyle = isHovered ? 'rgba(250, 204, 21, 0.28)' : 'rgba(234, 179, 8, 0.14)';
         ctx.lineWidth = isHovered ? 2.5 : 1.5;
         ctx.beginPath();
-        ctx.arc(0, 0, 0.38 * scale * pulse, 0, Math.PI * 2);
+        ctx.arc(0, 0, 0.36 * scale * pulse, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        // Document icon
         ctx.fillStyle = clue.type === 'diary' ? '#991b1b' : '#fef3c7';
-        ctx.fillRect(-0.22 * scale, -0.16 * scale, 0.44 * scale, 0.32 * scale);
-        ctx.strokeStyle = '#78350f';
-        ctx.strokeRect(-0.22 * scale, -0.16 * scale, 0.44 * scale, 0.32 * scale);
+        ctx.fillRect(-0.2 * scale, -0.15 * scale, 0.4 * scale, 0.3 * scale);
         ctx.restore();
       });
 
-      // 8. Draw Image Portrait Tokens ("O Segredo na Floresta" Style)
+      // 8. Draw Directional Flashlight Beams on Floor (ONLY the Flashlight Cone - NO light circle around character!)
+      st.tokens.forEach((tok) => {
+        if (tok.type === 'player' && tok.flashlightOn !== false) {
+          const poly = computeVisibilityPolygon(
+            tok.x,
+            tok.z,
+            tok.rotation || 0,
+            activeSegments,
+            true
+          );
+          if (poly.length > 2) {
+            const pOrigin = worldToScreen(tok.x, tok.z);
+            const beamGrad = ctx.createRadialGradient(
+              pOrigin.x,
+              pOrigin.y,
+              4,
+              pOrigin.x,
+              pOrigin.y,
+              9.5 * scale
+            );
+            beamGrad.addColorStop(0, 'rgba(254, 249, 195, 0.34)');
+            beamGrad.addColorStop(0.6, 'rgba(254, 240, 138, 0.14)');
+            beamGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+
+            ctx.save();
+            ctx.fillStyle = beamGrad;
+            ctx.beginPath();
+            poly.forEach((pt, idx) => {
+              const sp = worldToScreen(pt.x, pt.z);
+              if (idx === 0) ctx.moveTo(sp.x, sp.y);
+              else ctx.lineTo(sp.x, sp.y);
+            });
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      });
+
+      // 9. Draw Real-Time Flashlight-Only Fog of War Overlay BEFORE or around unseen tokens
+      if (st.fogMode !== 'reveal_all') {
+        const fCanvas = fogCanvasRef.current;
+        const fCtx = fCanvas.getContext('2d');
+        fCtx.clearRect(0, 0, 512, 307);
+
+        const alpha = st.role === 'gm' ? 0.48 : 0.96;
+        fCtx.fillStyle = `rgba(4, 4, 9, ${alpha})`;
+        fCtx.fillRect(0, 0, 512, 307);
+
+        fCtx.save();
+        fCtx.globalCompositeOperation = 'destination-out';
+
+        // Reveal ONLY the directional flashlight cone of each active player token (no radial circle around character!)
+        liveViewers.forEach((v) => {
+          const poly = computeVisibilityPolygon(
+            v.x,
+            v.z,
+            v.facing,
+            activeSegments,
+            v.flashlightOn
+          );
+          if (poly.length > 2) {
+            const orig = worldToFogPx(v.x, v.z);
+            const grad = fCtx.createRadialGradient(orig.x, orig.y, 4, orig.x, orig.y, 235);
+            grad.addColorStop(0, 'rgba(255,255,255,1)');
+            grad.addColorStop(0.82, 'rgba(255,255,255,0.96)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            fCtx.fillStyle = grad;
+            fCtx.beginPath();
+            poly.forEach((pt, idx) => {
+              const fp = worldToFogPx(pt.x, pt.z);
+              if (idx === 0) fCtx.moveTo(fp.x, fp.y);
+              else fCtx.lineTo(fp.x, fp.y);
+            });
+            fCtx.closePath();
+            fCtx.fill();
+          }
+        });
+
+        fCtx.drawImage(manualMaskCanvasRef.current, 0, 0);
+        fCtx.restore();
+
+        ctx.drawImage(fCanvas, topLeft.x, topLeft.y, mapPixelW, mapPixelH);
+      }
+
+      // 10. Draw FRAMELESS CHARACTER TOKENS (ONLY the Person/Figure - NO circle and NO border!)
+      // Drawn after the fog layer so the player's own character silhouette has maximum contrast on screen!
       st.tokens.forEach((tok) => {
         const isVisible =
           st.role === 'gm' ||
@@ -1215,164 +1266,99 @@ export default function TabletopCanvas2D({
           animRef.current.interactionType === 'drag_token' &&
           animRef.current.activeId === tok.id;
         const isSelected = st.selectedTokenId === tok.id;
-        const tokenRadius = 0.56 * (tok.sizeSquares || 1) * scale;
 
-        // Flashlight beam cone for player tokens
-        if (tok.type === 'player' && tok.flashlightOn !== false) {
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate(tok.rotation || 0);
-          const coneGrad = ctx.createRadialGradient(0, 0, tokenRadius * 0.5, 0, 0, 4.2 * scale);
-          coneGrad.addColorStop(0, 'rgba(254, 240, 138, 0.26)');
-          coneGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
-          ctx.fillStyle = coneGrad;
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.arc(0, 0, 4.2 * scale, -0.52, 0.52);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-        }
-
-        ctx.save();
-        // Elevation shadow when dragged (2.5D Tabletop effect)
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-        ctx.shadowBlur = isDragged ? 22 : 10;
-        ctx.shadowOffsetY = isDragged ? 12 : 4;
-
+        const charW = 1.25 * (tok.sizeSquares || 1) * scale;
+        const charH = 1.42 * (tok.sizeSquares || 1) * scale;
         const drawX = p.x;
-        const drawY = isDragged ? p.y - 8 : p.y;
+        const drawY = isDragged ? p.y - 10 : p.y;
 
-        // Circular clipped portrait image
         ctx.save();
+        // Ground shadow under feet
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
         ctx.beginPath();
-        ctx.arc(drawX, drawY, tokenRadius, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
+        ctx.ellipse(p.x, p.y + charH * 0.34, charW * 0.36, charH * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // High-contrast silhouette drop-shadow (NO circle, NO border around the person!)
+        ctx.shadowColor = isSelected ? 'rgba(250, 204, 21, 0.9)' : 'rgba(0, 0, 0, 0.98)';
+        ctx.shadowBlur = isDragged ? 22 : isSelected ? 16 : 12;
+        ctx.shadowOffsetY = isDragged ? 10 : 3;
 
         const avatarImg = getCachedImage(tok.avatar);
         if (avatarImg) {
+          // Preserve image aspect ratio cleanly without any circle clipping or border
+          const imgAspect =
+            avatarImg.naturalWidth && avatarImg.naturalHeight
+              ? avatarImg.naturalWidth / avatarImg.naturalHeight
+              : 0.86;
+          let renderW = charW;
+          let renderH = charH;
+          if (imgAspect > 1) {
+            renderH = charW / imgAspect;
+          } else {
+            renderW = charH * imgAspect;
+          }
           ctx.drawImage(
             avatarImg,
-            drawX - tokenRadius,
-            drawY - tokenRadius,
-            tokenRadius * 2,
-            tokenRadius * 2
-          );
-        } else {
-          ctx.fillStyle = tok.color || '#d97706';
-          ctx.fillRect(
-            drawX - tokenRadius,
-            drawY - tokenRadius,
-            tokenRadius * 2,
-            tokenRadius * 2
+            drawX - renderW / 2,
+            drawY - renderH / 2,
+            renderW,
+            renderH
           );
         }
         ctx.restore();
 
-        // Outer Class / Element Ring
-        ctx.strokeStyle = isSelected ? '#ffffff' : tok.ringColor || '#f59e0b';
-        ctx.lineWidth = isSelected ? 4 : 3;
-        ctx.beginPath();
-        ctx.arc(drawX, drawY, tokenRadius, 0, Math.PI * 2);
-        ctx.stroke();
+        // Interactive Flashlight Aim Handle when token is selected
+        if (isSelected && tok.flashlightOn !== false && tok.type === 'player') {
+          const handlePos = worldToScreen(
+            tok.x + Math.cos(tok.rotation || 0) * 1.1,
+            tok.z + Math.sin(tok.rotation || 0) * 1.1
+          );
+          ctx.save();
+          ctx.strokeStyle = 'rgba(250, 204, 21, 0.55)';
+          ctx.setLineDash([3, 3]);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(drawX, drawY);
+          ctx.lineTo(handlePos.x, handlePos.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-        // Facing Direction Pointer on Ring
-        const dirAngle = tok.rotation || 0;
-        const tipX = drawX + Math.cos(dirAngle) * (tokenRadius + 6);
-        const tipY = drawY + Math.sin(dirAngle) * (tokenRadius + 6);
-        ctx.fillStyle = tok.ringColor || '#f59e0b';
-        ctx.beginPath();
-        ctx.arc(tipX, tipY, 4.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+          ctx.fillStyle = '#facc15';
+          ctx.strokeStyle = '#09090b';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(handlePos.x, handlePos.y, 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
 
-        // Token Nameplate & PV/SAN Bars below token
-        const barW = Math.max(76, tokenRadius * 2.1);
+        // Compact Name & PV Bar under the character's feet
+        const barW = Math.max(68, charW * 0.95);
         const barX = drawX - barW / 2;
-        const barY = drawY + tokenRadius + 8;
+        const barY = drawY + charH * 0.42;
 
         ctx.save();
-        ctx.fillStyle = 'rgba(9, 9, 13, 0.88)';
-        ctx.strokeStyle = isSelected ? '#f59e0b' : 'rgba(63, 63, 70, 0.8)';
-        ctx.lineWidth = 1;
+        ctx.fillStyle = 'rgba(9, 9, 13, 0.85)';
         ctx.beginPath();
-        ctx.roundRect(barX - 4, barY - 2, barW + 8, tok.maxSan > 0 ? 30 : 24, 6);
+        ctx.roundRect(barX - 3, barY - 2, barW + 6, 20, 5);
         ctx.fill();
-        ctx.stroke();
 
         ctx.fillStyle = '#f4f4f5';
-        ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+        ctx.font = 'bold 10px Inter, system-ui, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(tok.name, drawX, barY + 10);
+        ctx.fillText(`${tok.name.split(' ')[0]} (${tok.hp})`, drawX, barY + 9);
 
-        // PV Bar
         const hpPct = Math.max(0, Math.min(1, tok.hp / (tok.maxHp || 1)));
         ctx.fillStyle = '#27272a';
-        ctx.fillRect(barX, barY + 14, barW, 4.5);
+        ctx.fillRect(barX, barY + 12, barW, 4);
         ctx.fillStyle = '#dc2626';
-        ctx.fillRect(barX, barY + 14, barW * hpPct, 4.5);
-
-        // SAN Bar
-        if (tok.maxSan > 0) {
-          const sanPct = Math.max(0, Math.min(1, tok.san / tok.maxSan));
-          ctx.fillStyle = '#27272a';
-          ctx.fillRect(barX, barY + 20, barW, 3.5);
-          ctx.fillStyle = '#8b5cf6';
-          ctx.fillRect(barX, barY + 20, barW * sanPct, 3.5);
-        }
+        ctx.fillRect(barX, barY + 12, barW * hpPct, 4);
         ctx.restore();
       });
 
-      // 9. Draw Real-Time Raycasting Fog of War Overlay (if not in 'reveal_all' mode)
-      if (st.fogMode !== 'reveal_all') {
-        const fCanvas = fogCanvasRef.current;
-        const fCtx = fCanvas.getContext('2d');
-        fCtx.clearRect(0, 0, 512, 307);
-
-        // GM sees translucent shadow (0.45) to edit the whole map; Players see dense black shadow (0.97)
-        const alpha = st.role === 'gm' ? 0.45 : 0.97;
-        fCtx.fillStyle = `rgba(5, 5, 10, ${alpha})`;
-        fCtx.fillRect(0, 0, 512, 307);
-
-        fCtx.save();
-        fCtx.globalCompositeOperation = 'destination-out';
-
-        // Reveal polygons for each viewer token
-        liveViewers.forEach((v) => {
-          const poly = computeVisibilityPolygon(
-            v.x,
-            v.z,
-            v.facing,
-            activeSegments,
-            v.flashlightOn
-          );
-          if (poly.length > 2) {
-            const orig = worldToFogPx(v.x, v.z);
-            const grad = fCtx.createRadialGradient(orig.x, orig.y, 10, orig.x, orig.y, 195);
-            grad.addColorStop(0, 'rgba(255,255,255,1)');
-            grad.addColorStop(0.8, 'rgba(255,255,255,0.95)');
-            grad.addColorStop(1, 'rgba(255,255,255,0)');
-            fCtx.fillStyle = grad;
-            fCtx.beginPath();
-            poly.forEach((pt, idx) => {
-              const fp = worldToFogPx(pt.x, pt.z);
-              if (idx === 0) fCtx.moveTo(fp.x, fp.y);
-              else fCtx.lineTo(fp.x, fp.y);
-            });
-            fCtx.closePath();
-            fCtx.fill();
-          }
-        });
-
-        // Apply GM Manual Fog Paint Mask
-        fCtx.drawImage(manualMaskCanvasRef.current, 0, 0);
-        fCtx.restore();
-
-        ctx.drawImage(fCanvas, topLeft.x, topLeft.y, mapPixelW, mapPixelH);
-      }
-
-      // 10. Draw Tactical 1.5m Ruler when dragging a token with Tab/Alt or Ruler button ON
+      // 11. Draw Tactical 1.5m Ruler
       const showRuler =
         animRef.current.interactionType === 'drag_token' &&
         (animRef.current.isMeasureKeyHold || st.rulerForcedOn);
@@ -1401,39 +1387,25 @@ export default function TabletopCanvas2D({
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // Square tick dots every 1.5m
-          const wholeSq = Math.floor(squares);
-          for (let s = 1; s <= wholeSq; s++) {
-            const t = (s * 1.5) / (distMeters || 1);
-            const tx = pStart.x + (pEnd.x - pStart.x) * t;
-            const ty = pStart.y + (pEnd.y - pStart.y) * t;
-            ctx.fillStyle = s <= 6 ? '#22c55e' : s <= 12 ? '#f59e0b' : '#ef4444';
-            ctx.beginPath();
-            ctx.arc(tx, ty, 5, 0, Math.PI * 2);
-            ctx.fill();
-          }
-
-          // Floating label at midpoint
           const mx = (pStart.x + pEnd.x) / 2;
-          const my = (pStart.y + pEnd.y) / 2 - 22;
-          const labelText = `📏 ${distMeters.toFixed(1)}m (${squares.toFixed(1)}q)`;
+          const my = (pStart.y + pEnd.y) / 2 - 20;
           ctx.fillStyle = 'rgba(9, 9, 13, 0.94)';
           ctx.strokeStyle = '#facc15';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
-          ctx.roundRect(mx - 68, my - 14, 136, 26, 6);
+          ctx.roundRect(mx - 64, my - 13, 128, 24, 6);
           ctx.fill();
           ctx.stroke();
 
           ctx.fillStyle = '#fde047';
-          ctx.font = 'bold 12px JetBrains Mono, monospace';
+          ctx.font = 'bold 11px JetBrains Mono, monospace';
           ctx.textAlign = 'center';
-          ctx.fillText(labelText, mx, my + 3);
+          ctx.fillText(`📏 ${distMeters.toFixed(1)}m (${squares.toFixed(1)}q)`, mx, my + 3);
           ctx.restore();
         }
       }
 
-      // 11. Draw Animated Polyhedral Dice on the Table
+      // 12. Draw Animated Polyhedral Dice
       animRef.current.diceVisuals.forEach((d) => {
         if (d.age < 1.1) {
           d.age += dt;
@@ -1451,7 +1423,7 @@ export default function TabletopCanvas2D({
         ctx.fillStyle = '#18181b';
         ctx.strokeStyle = d.color;
         ctx.lineWidth = 2.5;
-        const r = Math.max(14, 0.28 * scale);
+        const r = Math.max(13, 0.26 * scale);
         ctx.beginPath();
         for (let k = 0; k < 6; k++) {
           const a = (k * Math.PI) / 3;
@@ -1471,57 +1443,22 @@ export default function TabletopCanvas2D({
         ctx.restore();
       });
 
-      // 12. Draw Floating "Mãozinhas" Cursors (Peer + Player/Master Hand)
-      const drawHandCursor = (screenX, screenY, colorHex, label, isClosed) => {
+      // 13. Draw Floating "Mãozinha" Cursor
+      const drawHandCursor = (screenX, screenY, colorHex, isClosed) => {
         ctx.save();
         ctx.translate(screenX, screenY);
-
-        // Glow circle
-        ctx.fillStyle = colorHex;
-        ctx.globalAlpha = 0.22;
-        ctx.beginPath();
-        ctx.arc(0, 0, 18, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-
-        // Hand emoji / sculpted badge
-        ctx.font = '20px sans-serif';
+        ctx.font = '18px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(isClosed ? '✊' : '🖐️', 0, 0);
-
-        // Player tag pill
-        ctx.fillStyle = 'rgba(9, 9, 13, 0.9)';
-        ctx.strokeStyle = colorHex;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.roundRect(12, 8, 66, 18, 4);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#f4f4f5';
-        ctx.font = 'bold 10px Inter, sans-serif';
-        ctx.fillText(label, 45, 17);
         ctx.restore();
       };
 
-      if (st.showTeamCursors) {
-        const peerPos = worldToScreen(
-          -2.4 + Math.cos(elapsed * 0.85) * 1.4,
-          -1.0 + Math.sin(elapsed * 1.15) * 1.0
-        );
-        drawHandCursor(peerPos.x, peerPos.y, '#a855f7', 'Kaiser', false);
-      }
-
-      const roleColor =
-        st.role === 'gm' ? '#ef4444' : st.role === 'joui' ? '#ef4444' : '#f59e0b';
-      const roleLabel =
-        st.role === 'gm' ? 'Mestre' : st.role === 'joui' ? 'Joui' : 'Arthur';
+      const roleColor = st.role === 'gm' ? '#ef4444' : '#f59e0b';
       drawHandCursor(
         animRef.current.mouseScreen.x,
         animRef.current.mouseScreen.y,
         roleColor,
-        roleLabel,
         animRef.current.isGrabbing
       );
     };
@@ -1539,234 +1476,258 @@ export default function TabletopCanvas2D({
   }, []);
 
   const primaryDoor = currentMap?.doors?.[0];
+  const selectedToken = tokens.find((t) => t.id === selectedTokenId);
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none bg-[#09090d]">
-      {/* 60FPS 2D/2.5D Tactical Canvas ("O Segredo na Floresta" Style) */}
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full block cursor-none"
-      />
+      {/* Fullscreen 60FPS Canvas */}
+      <canvas ref={canvasRef} className="w-full h-full block cursor-none" />
 
-      {/* TOP FLOATING BAR: Map Switcher, Image Upload, Token Creator & Master Editor Tools */}
-      <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-        <div className="flex flex-wrap items-center gap-1.5 bg-zinc-950/95 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl shadow-2xl pointer-events-auto">
-          <button
-            onClick={onOpenMapModal}
-            className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/60 text-amber-200 text-xs font-bold flex items-center gap-1.5 transition"
-            title="Trocar de ambiente ou subir qualquer imagem de mapa do seu PC"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            🗺️ Trocar / Subir Mapa ({currentMap.name.split('.')[1] || currentMap.name})
-          </button>
+      {/* COMPACT COLLAPSIBLE MASTER TOOLS FILTER BUTTON (Bottom-Left) */}
+      <div className="absolute bottom-3 left-3 z-20 flex flex-col items-start gap-1.5">
+        {showGmToolsDropdown && (
+          <div className="bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-2xl p-2.5 shadow-2xl flex flex-col gap-2 w-64 animate-fadeIn">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold px-1">
+              Opções Rápidas de Mapa & Mestre
+            </div>
 
-          <button
-            onClick={onOpenTokenModal}
-            className="px-2.5 py-1.5 rounded-lg bg-red-950/80 hover:bg-red-900/80 border border-red-500/50 text-red-100 text-xs font-bold flex items-center gap-1.5 transition"
-            title="Criar novo personagem/monstro ou colocar sua própria imagem no Token"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            🖼️ Criar / Editar Token (Imagem)
-          </button>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => {
+                  setShowGmToolsDropdown(false);
+                  onOpenMapModal();
+                }}
+                className="p-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 text-xs font-bold flex items-center gap-1.5"
+              >
+                <Upload className="w-3.5 h-3.5 shrink-0" />
+                Subir Mapa
+              </button>
 
-          <button
-            onClick={() =>
-              setFogMode(fogMode === 'reveal_all' ? 'dynamic' : 'reveal_all')
-            }
-            className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition ${
-              fogMode === 'reveal_all'
-                ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-200'
-                : 'bg-violet-950/80 border-violet-500/60 text-violet-200'
-            }`}
-            title="Alternar entre Mapa Totalmente Aberto (sem sombra) ou Escuridão Dinâmica (Lanternas & Portas)"
-          >
-            {fogMode === 'reveal_all' ? (
-              <>
-                <Sun className="w-3.5 h-3.5" /> Mapa Aberto (Sem Sombra)
-              </>
-            ) : (
-              <>
-                <Flashlight className="w-3.5 h-3.5" /> Luz & Sombra Dinâmica
-              </>
+              <button
+                onClick={() => {
+                  setShowGmToolsDropdown(false);
+                  onOpenTokenModal();
+                }}
+                className="p-2 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-500/50 text-red-100 text-xs font-bold flex items-center gap-1.5"
+              >
+                <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                Add Token
+              </button>
+            </div>
+
+            <button
+              onClick={() =>
+                setFogMode(fogMode === 'reveal_all' ? 'dynamic' : 'reveal_all')
+              }
+              className={`w-full py-1.5 px-2.5 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 ${
+                fogMode === 'reveal_all'
+                  ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-200'
+                  : 'bg-violet-950/80 border-violet-500/60 text-violet-200'
+              }`}
+            >
+              {fogMode === 'reveal_all' ? (
+                <>
+                  <Sun className="w-3.5 h-3.5" /> Mapa Claro (Sem Sombra)
+                </>
+              ) : (
+                <>
+                  <Flashlight className="w-3.5 h-3.5" /> Só Luz da Lanterna
+                </>
+              )}
+            </button>
+
+            {role === 'gm' && (
+              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-zinc-800">
+                <button
+                  onClick={() => setGmTool('interact')}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center gap-1 ${
+                    gmTool === 'interact'
+                      ? 'bg-red-900 text-white'
+                      : 'bg-zinc-900 text-zinc-400'
+                  }`}
+                >
+                  <Hand className="w-3 h-3" /> Mover Tudo
+                </button>
+                <button
+                  onClick={() => setGmTool('draw_wall')}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center gap-1 ${
+                    gmTool === 'draw_wall'
+                      ? 'bg-sky-900 text-white'
+                      : 'bg-zinc-900 text-zinc-400'
+                  }`}
+                >
+                  <BrickWall className="w-3 h-3" /> + Parede
+                </button>
+                <button
+                  onClick={() => setGmTool('add_door')}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center gap-1 ${
+                    gmTool === 'add_door'
+                      ? 'bg-amber-900 text-white'
+                      : 'bg-zinc-900 text-zinc-400'
+                  }`}
+                >
+                  <DoorOpen className="w-3 h-3" /> + Porta
+                </button>
+                <button
+                  onClick={() => setGmTool('erase')}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center gap-1 ${
+                    gmTool === 'erase'
+                      ? 'bg-rose-900 text-white'
+                      : 'bg-zinc-900 text-zinc-400'
+                  }`}
+                >
+                  <Eraser className="w-3 h-3" /> Apagar
+                </button>
+              </div>
             )}
-          </button>
-        </div>
-
-        {/* Master Map Builder Toolbar (Active when in GM Mode) */}
-        {role === 'gm' && (
-          <div className="flex flex-wrap items-center gap-1 bg-zinc-950/95 backdrop-blur-md border border-red-500/40 px-2.5 py-1.5 rounded-xl shadow-2xl pointer-events-auto">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-red-400 px-1.5 font-bold">
-              Editor do Mestre:
-            </span>
-            <button
-              onClick={() => setGmTool('interact')}
-              className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
-                gmTool === 'interact'
-                  ? 'bg-red-900/80 text-white border border-red-400'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-              }`}
-              title="Mover qualquer token, abrir portas e arrastar pistas/objetos"
-            >
-              <Hand className="w-3.5 h-3.5" /> Mover Tudo
-            </button>
-            <button
-              onClick={() => setGmTool('draw_wall')}
-              className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
-                gmTool === 'draw_wall'
-                  ? 'bg-sky-900/90 text-sky-100 border border-sky-400'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-              }`}
-              title="Clique e arraste no mapa para desenhar paredes que bloqueiam a visão"
-            >
-              <BrickWall className="w-3.5 h-3.5" /> + Parede
-            </button>
-            <button
-              onClick={() => setGmTool('add_door')}
-              className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
-                gmTool === 'add_door'
-                  ? 'bg-amber-900/90 text-amber-100 border border-amber-400'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-              }`}
-              title="Clique e arraste no mapa para colocar uma porta interativa"
-            >
-              <DoorOpen className="w-3.5 h-3.5" /> + Porta
-            </button>
-            <button
-              onClick={() => setGmTool('erase')}
-              className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
-                gmTool === 'erase'
-                  ? 'bg-rose-900/90 text-rose-100 border border-rose-400'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200'
-              }`}
-              title="Clique em qualquer parede, porta ou objeto colocado para apagá-lo"
-            >
-              <Eraser className="w-3.5 h-3.5" /> Apagar
-            </button>
           </div>
         )}
+
+        <button
+          onClick={() => setShowGmToolsDropdown(!showGmToolsDropdown)}
+          className="px-3 py-2 rounded-xl bg-zinc-950/95 hover:bg-zinc-900 border border-zinc-700 text-xs font-bold text-amber-300 shadow-2xl flex items-center gap-1.5"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <span>Opções de Mapa & Token</span>
+          {showGmToolsDropdown ? (
+            <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronUp className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
+
+      {/* COMPACT COLLAPSIBLE CAMERA, FLASHLIGHT AIM & DOOR BUTTON (Bottom-Right) */}
+      <div className="absolute bottom-3 right-3 z-20 flex flex-col items-end gap-1.5">
+        {showBottomControls && (
+          <div className="bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-2xl p-2.5 shadow-2xl flex flex-col gap-2 w-64 animate-fadeIn">
+            {/* Flashlight Direction Slider for Selected Character */}
+            {selectedToken && selectedToken.type === 'player' && (
+              <div className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-bold text-amber-300">
+                  <span className="flex items-center gap-1">
+                    <Compass className="w-3.5 h-3.5" /> Girar Lanterna ({selectedToken.name.split(' ')[0]})
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={-3.14}
+                  max={3.14}
+                  step={0.08}
+                  value={selectedToken.rotation || 0}
+                  onChange={(e) => {
+                    const rot = parseFloat(e.target.value);
+                    setTokens((prev) =>
+                      prev.map((t) =>
+                        t.id === selectedToken.id ? { ...t, rotation: rot } : t
+                      )
+                    );
+                  }}
+                  className="w-full accent-amber-400"
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-1">
+              <button
+                onClick={() => {
+                  cameraRef.current.zoom = Math.min(2.8, cameraRef.current.zoom * 1.18);
+                }}
+                className="py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-zinc-200 flex items-center justify-center gap-1 border border-zinc-800"
+              >
+                <ZoomIn className="w-3.5 h-3.5" /> +
+              </button>
+              <button
+                onClick={() => {
+                  cameraRef.current.zoom = Math.max(0.55, cameraRef.current.zoom * 0.84);
+                }}
+                className="py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-zinc-200 flex items-center justify-center gap-1 border border-zinc-800"
+              >
+                <ZoomOut className="w-3.5 h-3.5" /> -
+              </button>
+              <button
+                onClick={() => {
+                  cameraRef.current = { centerX: 0, centerZ: 0, zoom: 1.0 };
+                }}
+                className="py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-xs font-bold text-zinc-200 flex items-center justify-center gap-1 border border-zinc-800"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reset
+              </button>
+            </div>
+
+            <button
+              onClick={() =>
+                onUpdateMap({ ...currentMap, gridEnabled: currentMap.gridEnabled === false })
+              }
+              className="w-full py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-200 flex items-center justify-center gap-1.5"
+            >
+              <Grid className="w-3.5 h-3.5 text-amber-400" />
+              {currentMap.gridEnabled !== false ? 'Ocultar Grade 1,5m' : 'Mostrar Grade 1,5m'}
+            </button>
+
+            {primaryDoor && (
+              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-zinc-800">
+                <button
+                  onClick={() => {
+                    if (primaryDoor.locked && role !== 'gm') {
+                      soundEngine.playSFX('door_locked');
+                      onNotification('🔒 Porta Trancada!');
+                      return;
+                    }
+                    soundEngine.playSFX('door_creak');
+                    const updated = currentMap.doors.map((d, i) =>
+                      i === 0 ? { ...d, angleRad: 0.48 } : d
+                    );
+                    onUpdateMap({ ...currentMap, doors: updated });
+                  }}
+                  className="py-1.5 px-2 rounded-lg bg-amber-950/80 text-amber-200 border border-amber-500/40 text-[11px] font-bold"
+                >
+                  🔦 Espiar Fresta
+                </button>
+                <button
+                  onClick={() => {
+                    if (primaryDoor.locked && role !== 'gm') {
+                      soundEngine.playSFX('door_locked');
+                      onNotification('🔒 Porta Trancada!');
+                      return;
+                    }
+                    soundEngine.playSFX('door_creak');
+                    const isOpen = Math.abs(primaryDoor.angleRad || 0) > 0.35;
+                    const updated = currentMap.doors.map((d, i) =>
+                      i === 0 ? { ...d, angleRad: isOpen ? 0 : 1.45 } : d
+                    );
+                    onUpdateMap({ ...currentMap, doors: updated });
+                  }}
+                  className="py-1.5 px-2 rounded-lg bg-zinc-900 text-zinc-200 border border-zinc-700 text-[11px] font-bold"
+                >
+                  {Math.abs(primaryDoor.angleRad || 0) > 0.35 ? '🚪 Fechar' : '🚪 Abrir'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          onClick={() => setShowBottomControls(!showBottomControls)}
+          className="px-3 py-2 rounded-xl bg-zinc-950/95 hover:bg-zinc-900 border border-zinc-700 text-xs font-bold text-zinc-200 shadow-2xl flex items-center gap-1.5"
+        >
+          <Compass className="w-3.5 h-3.5 text-amber-400" />
+          <span>Lanterna, Zoom & Porta</span>
+          {showBottomControls ? (
+            <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronUp className="w-3.5 h-3.5" />
+          )}
+        </button>
       </div>
 
       {/* Hover Contextual Prompt */}
       {hoveredInfo && (
-        <div className="pointer-events-none absolute bottom-16 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-zinc-950/95 border border-amber-500/60 shadow-2xl text-center">
+        <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-xl bg-zinc-950/95 border border-amber-500/60 shadow-2xl text-center">
           <div className="text-xs font-bold text-amber-300">{hoveredInfo.title}</div>
-          <div className="text-[11px] text-zinc-300">{hoveredInfo.hint}</div>
+          <div className="text-[10px] text-zinc-300">{hoveredInfo.hint}</div>
         </div>
       )}
-
-      {/* Bottom Floating Camera, Grid & Quick Door Controls */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-950/95 backdrop-blur-md border border-zinc-800 shadow-2xl">
-        <button
-          onClick={() => {
-            cameraRef.current.zoom = Math.min(2.8, cameraRef.current.zoom * 1.18);
-          }}
-          className="px-2 py-1 text-xs rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/70 flex items-center gap-1"
-          title="Aproximar Zoom"
-        >
-          <ZoomIn className="w-3.5 h-3.5" /> Zoom +
-        </button>
-        <button
-          onClick={() => {
-            cameraRef.current.zoom = Math.max(0.55, cameraRef.current.zoom * 0.84);
-          }}
-          className="px-2 py-1 text-xs rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/70 flex items-center gap-1"
-          title="Afastar Zoom"
-        >
-          <ZoomOut className="w-3.5 h-3.5" /> Zoom -
-        </button>
-        <button
-          onClick={() => {
-            cameraRef.current = { centerX: 0, centerZ: 0, zoom: 1.0 };
-          }}
-          className="px-2 py-1 text-xs rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/70 flex items-center gap-1"
-          title="Centralizar Mapa"
-        >
-          <RotateCcw className="w-3.5 h-3.5" /> Centralizar
-        </button>
-        <button
-          onClick={() =>
-            onUpdateMap({ ...currentMap, gridEnabled: currentMap.gridEnabled === false })
-          }
-          className={`px-2 py-1 text-xs rounded-lg border flex items-center gap-1 ${
-            currentMap.gridEnabled !== false
-              ? 'bg-amber-950/70 border-amber-500/50 text-amber-200'
-              : 'bg-zinc-900 border-zinc-800 text-zinc-400'
-          }`}
-          title="Ligar/Desligar Grade de Quadrados (1,5m)"
-        >
-          <Grid className="w-3.5 h-3.5" /> Grade 1,5m
-        </button>
-
-        {primaryDoor && (
-          <>
-            <div className="h-4 w-px bg-zinc-800 mx-1" />
-            <button
-              onClick={() => {
-                if (primaryDoor.locked && role !== 'gm') {
-                  soundEngine.playSFX('door_locked');
-                  onNotification('🔒 Porta Trancada! O Mestre precisa destrancá-la.');
-                  return;
-                }
-                soundEngine.playSFX('door_creak');
-                const updated = currentMap.doors.map((d, i) =>
-                  i === 0 ? { ...d, angleRad: 0.48 } : d
-                );
-                onUpdateMap({ ...currentMap, doors: updated });
-              }}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-950/70 hover:bg-amber-900 text-amber-200 border border-amber-500/40"
-            >
-              🔦 Entreabrir Fresta (25°)
-            </button>
-            <button
-              onClick={() => {
-                if (primaryDoor.locked && role !== 'gm') {
-                  soundEngine.playSFX('door_locked');
-                  onNotification('🔒 Porta Trancada! O Mestre precisa destrancá-la.');
-                  return;
-                }
-                soundEngine.playSFX('door_creak');
-                const isOpen = Math.abs(primaryDoor.angleRad || 0) > 0.35;
-                const updated = currentMap.doors.map((d, i) =>
-                  i === 0 ? { ...d, angleRad: isOpen ? 0 : 1.45 } : d
-                );
-                onUpdateMap({ ...currentMap, doors: updated });
-              }}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700"
-            >
-              {Math.abs(primaryDoor.angleRad || 0) > 0.35
-                ? '🚪 Fechar Porta'
-                : '🚪 Escancarar Porta'}
-            </button>
-
-            {role === 'gm' && (
-              <button
-                onClick={() => {
-                  soundEngine.playSFX('door_locked');
-                  const updated = currentMap.doors.map((d, i) =>
-                    i === 0 ? { ...d, locked: !d.locked } : d
-                  );
-                  onUpdateMap({ ...currentMap, doors: updated });
-                }}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1 ${
-                  primaryDoor.locked
-                    ? 'bg-red-950/80 border-red-500/60 text-red-200'
-                    : 'bg-emerald-950/80 border-emerald-500/60 text-emerald-200'
-                }`}
-              >
-                {primaryDoor.locked ? (
-                  <>
-                    <Lock className="w-3 h-3" /> Trancada
-                  </>
-                ) : (
-                  <>
-                    <Unlock className="w-3 h-3" /> Destrancada
-                  </>
-                )}
-              </button>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }

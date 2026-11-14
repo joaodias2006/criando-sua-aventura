@@ -1,5 +1,5 @@
-// 2D Raycasting Line-of-Sight (LoS) & Dynamic Fog of War Engine for Ordo Realitas VTT
-// Supports dynamic custom walls and multiple interactive doors placed by the Master on any map!
+// 2D Raycasting Line-of-Sight (LoS) & Dynamic Flashlight-Only Fog of War Engine for Ordo Realitas VTT
+// Only the directional Flashlight Cone illuminates the darkness (no radial circle around the character).
 
 export const MAP_BOUNDS = {
   minX: -7.5,
@@ -10,13 +10,15 @@ export const MAP_BOUNDS = {
   height: 9,
 };
 
+const FLASHLIGHT_HALF_ANGLE = 0.68; // ~39 degrees each side (78° total flashlight beam)
+const FLASHLIGHT_RANGE = 13.5; // meters
+
 /**
  * Computes the dynamic line segment for an interactive door based on its hinge pivot, baseAngle and current opening angle
  */
 export function getDoorSegment(door) {
   const totalAngle = (door.baseAngle || 0) + (door.angleRad || 0);
   const len = door.length || 2.0;
-  // When totalAngle === 0, door goes from (hingeX, hingeZ) along +Z by `len`
   const endX = door.hingeX + Math.sin(totalAngle) * len;
   const endZ = door.hingeZ + Math.cos(totalAngle) * len;
   return {
@@ -73,21 +75,24 @@ function intersectRaySegment(ox, oz, dx, dz, seg, maxDist) {
 }
 
 /**
- * Computes a 360-degree visibility polygon around (ox, oz) with a directional flashlight boost
+ * Computes ONLY the directional Flashlight Cone polygon starting from (ox, oz) along facingAngle.
+ * No radial circle around the character.
  */
 export function computeVisibilityPolygon(ox, oz, facingAngle, segments, flashlightOn = true) {
-  const numRays = 180; // Fast 60fps ray count
-  const points = [];
+  if (!flashlightOn) return [];
 
-  for (let i = 0; i < numRays; i++) {
-    const angle = (i / numRays) * Math.PI * 2 - Math.PI;
+  const numRays = 90;
+  // Start polygon at the flashlight origin (the character's hand/position)
+  const points = [{ x: ox, z: oz }];
+
+  for (let i = 0; i <= numRays; i++) {
+    const t = i / numRays;
+    const angle =
+      facingAngle - FLASHLIGHT_HALF_ANGLE + t * (FLASHLIGHT_HALF_ANGLE * 2);
     const dx = Math.cos(angle);
     const dz = Math.sin(angle);
 
-    const angleDiff = Math.atan2(Math.sin(angle - facingAngle), Math.cos(angle - facingAngle));
-    const inFlashlightCone = flashlightOn && Math.abs(angleDiff) < 0.72;
-    let maxDist = inFlashlightCone ? 12.8 : 5.2;
-
+    let maxDist = FLASHLIGHT_RANGE;
     for (let s = 0; s < segments.length; s++) {
       const hitDist = intersectRaySegment(ox, oz, dx, dz, segments[s], maxDist);
       if (hitDist !== null && hitDist < maxDist) {
@@ -105,16 +110,26 @@ export function computeVisibilityPolygon(ox, oz, facingAngle, segments, flashlig
 }
 
 /**
- * Checks if a world point (px, pz) has clear line of sight from any viewer token
+ * Checks if a world point (px, pz) is illuminated by any viewer's flashlight cone
  */
 export function isPointVisibleToViewers(px, pz, viewers, segments, manualRoom2Revealed = false) {
   if (manualRoom2Revealed && px >= 0) return true;
 
   for (const v of viewers) {
+    if (v.flashlightOn === false) continue;
+
     const dx = px - v.x;
     const dz = pz - v.z;
     const dist = Math.hypot(dx, dz);
-    if (dist > 13.0) continue;
+    if (dist < 0.35) return true;
+    if (dist > FLASHLIGHT_RANGE) continue;
+
+    const angleToPoint = Math.atan2(dz, dx);
+    const angleDiff = Math.atan2(
+      Math.sin(angleToPoint - (v.facing || 0)),
+      Math.cos(angleToPoint - (v.facing || 0))
+    );
+    if (Math.abs(angleDiff) > FLASHLIGHT_HALF_ANGLE + 0.06) continue;
 
     const dirX = dx / (dist || 1);
     const dirZ = dz / (dist || 1);

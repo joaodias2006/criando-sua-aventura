@@ -5,7 +5,7 @@ import {
   INITIAL_TOKENS,
   INITIAL_HANDOUTS,
   ELEMENT_THEMES,
-  makeAvatarSvg,
+  makeCharacterCutoutSvg,
 } from './data/ordoData';
 import InitiativeTracker from './components/InitiativeTracker';
 import WorkshopAndAudioPanel from './components/WorkshopAndAudioPanel';
@@ -14,49 +14,52 @@ import TabletopCanvas2D from './components/TabletopCanvas2D';
 import HandoutInspectorModal from './components/HandoutInspectorModal';
 import MapAndTokenManagerModal from './components/MapAndTokenManagerModal';
 import { soundEngine } from './utils/soundEngine';
-import { Dices, X, HelpCircle } from 'lucide-react';
+import { Dices, X } from 'lucide-react';
 
 export default function App() {
-  // 1. Permission Role ('gm' | 'arthur' | 'joui' | 'dante') — starts in 'gm' so user can immediately edit everything!
+  // 1. Permission Role ('gm' or player character id)
   const [role, setRole] = useState('gm');
 
-  // 2. Active Map / Environment State (supports preset maps & user-uploaded images)
-  const [currentMap, setCurrentMap] = useState(PRESET_MAPS[0]);
-  const [studioModalTab, setStudioModalTab] = useState(null); // null | 'map' | 'tokens'
+  // 2. Collapsible Drawers (Closed by default so 100% of the Map is visible on Mobile & Desktop!)
+  const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
+  const [isRightSheetOpen, setIsRightSheetOpen] = useState(false);
 
-  // 3. Characters & Image Portrait Tokens State
+  // 3. Active Map / Environment State
+  const [currentMap, setCurrentMap] = useState(PRESET_MAPS[0]);
+  const [studioModalTab, setStudioModalTab] = useState(null);
+
+  // 4. Characters & Frameless Tokens State
   const [characters, setCharacters] = useState(INITIAL_CHARACTERS);
   const [activeCharId, setActiveCharId] = useState('arthur');
   const [tokens, setTokens] = useState(INITIAL_TOKENS);
   const [selectedTokenId, setSelectedTokenId] = useState('arthur');
 
-  // 4. Fog of War State ('dynamic' | 'reveal_all' | 'brush_reveal' | 'brush_hide')
+  // 5. Fog of War State ('dynamic' = Flashlight-Only | 'reveal_all' = Clear Map)
   const [fogMode, setFogMode] = useState('dynamic');
   const [manualRoom2Revealed, setManualRoom2Revealed] = useState(false);
 
-  // 5. Inspectable Handouts & Spawned Props (including custom uploaded prop images)
+  // 6. Inspectable Handouts & Spawned Props
   const [handouts, setHandouts] = useState(INITIAL_HANDOUTS);
   const [inspectedHandout, setInspectedHandout] = useState(null);
   const [spawnedProps, setSpawnedProps] = useState([]);
 
-  // 6. Combat Initiative, Dice Rolls & Ritual Visuals
+  // 7. Combat Initiative, Dice Rolls & Ritual Visuals
   const [turnIndex, setTurnIndex] = useState(0);
   const [round, setRound] = useState(1);
   const [rollRequest, setRollRequest] = useState(null);
   const [lastRollResult, setLastRollResult] = useState(null);
   const [activeRitualEffect, setActiveRitualEffect] = useState(null);
 
-  // 7. Tabletop UI Toggles & Toast Notifications
-  const [showTeamCursors, setShowTeamCursors] = useState(true);
+  // 8. Tabletop Toggles & Toast Notifications
+  const [showTeamCursors, setShowTeamCursors] = useState(false);
   const [rulerForcedOn, setRulerForcedOn] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [showControlsHint, setShowControlsHint] = useState(true);
 
   const triggerNotification = useCallback((msg) => {
     setNotification(msg);
     setTimeout(() => {
       setNotification((prev) => (prev === msg ? null : prev));
-    }, 4200);
+    }, 4000);
   }, []);
 
   const handleRoleChange = (nextRole) => {
@@ -68,22 +71,22 @@ export default function App() {
     }
     triggerNotification(
       nextRole === 'gm'
-        ? '👑 Modo Mestre ativado: Altere tudo! Mova qualquer token, suba mapas, desenhe paredes e abra/tranque portas.'
-        : `🕵️ Visão do Jogador (${nextRole.toUpperCase()}) ativada: Você enxerga apenas o que a lanterna ilumina.`
+        ? '👑 Modo Mestre: Mova tudo, desenhe paredes e suba mapas!'
+        : '🔦 Visão do Jogador: Apenas o feixe da Lanterna ilumina o mapa.'
     );
   };
 
-  // Sync Character Sheet updates (PV, SAN, PE) with Tokens & Automatic Conditions
+  // Sync Character Sheet updates (Name, Avatar, PV, SAN, PE) with Map Tokens
   const handleUpdateCharacter = (charId, updatedChar) => {
     const prevChar = characters[charId];
     setCharacters((prev) => ({ ...prev, [charId]: updatedChar }));
 
     if (updatedChar.san.current <= 0 && prevChar?.san.current > 0) {
       soundEngine.playSFX('whispers');
-      triggerNotification(`👁️ ${updatedChar.name} chegou a 0 de Sanidade e está ENLOUQUECENDO!`);
+      triggerNotification(`👁️ ${updatedChar.name} chegou a 0 SAN (ENLOUQUECENDO)!`);
     } else if (updatedChar.hp.current <= 0 && prevChar?.hp.current > 0) {
       soundEngine.playSFX('heartbeat');
-      triggerNotification(`🩸 ${updatedChar.name} caiu a 0 PV e está MORRENDO / INCONSCIENTE!`);
+      triggerNotification(`🩸 ${updatedChar.name} caiu a 0 PV (MORRENDO)!`);
     }
 
     setTokens((prevTokens) =>
@@ -98,6 +101,8 @@ export default function App() {
 
         return {
           ...t,
+          name: updatedChar.name,
+          avatar: updatedChar.avatar || t.avatar,
           hp: updatedChar.hp.current,
           maxHp: updatedChar.hp.max,
           san: updatedChar.san.current,
@@ -110,9 +115,59 @@ export default function App() {
     );
   };
 
-  // Official Jambô Editora Rule for Skill / Attribute Rolls:
-  // If Attribute > 0: Roll [Attribute] d20s and take the HIGHEST + Skill Training Bonus (+0/+5/+10/+15).
-  // If Attribute === 0: Roll 2d20 and take the LOWEST + Skill Training Bonus.
+  // Create a brand new Character (from .docx import or blank button) & spawn their frameless Token on the map
+  const handleCreateCharacter = (newChar) => {
+    setCharacters((prev) => ({ ...prev, [newChar.id]: newChar }));
+    setActiveCharId(newChar.id);
+    setSelectedTokenId(newChar.id);
+
+    const newToken = {
+      id: newChar.id,
+      name: newChar.name,
+      subtitle: `${newChar.class} • NEX ${newChar.nex}%`,
+      type: 'player',
+      owner: newChar.id,
+      element: newChar.affinity || 'Sangue',
+      color: newChar.tokenColor || '#f59e0b',
+      ringColor: newChar.cursorColor || '#f59e0b',
+      avatar:
+        newChar.avatar ||
+        makeCharacterCutoutSvg(newChar.name.slice(0, 6), '#f59e0b', 'agent'),
+      sizeSquares: 1.15,
+      x: -2.5 + (Math.random() - 0.5) * 1.5,
+      z: (Math.random() - 0.5) * 1.5,
+      rotation: 0,
+      hp: newChar.hp.current,
+      maxHp: newChar.hp.max,
+      san: newChar.san.current,
+      maxSan: newChar.san.max,
+      pe: newChar.pe.current,
+      maxPe: newChar.pe.max,
+      conditions: [],
+      flashlightOn: true,
+    };
+
+    setTokens((prev) => [...prev, newToken]);
+    triggerNotification(`✅ Personagem "${newChar.name}" criado e colocado no mapa!`);
+  };
+
+  // Delete a Character and remove their token from the map
+  const handleDeleteCharacter = (charId) => {
+    const remainingIds = Object.keys(characters).filter((id) => id !== charId);
+    if (remainingIds.length === 0) return;
+
+    setCharacters((prev) => {
+      const copy = { ...prev };
+      delete copy[charId];
+      return copy;
+    });
+    setTokens((prev) => prev.filter((t) => t.id !== charId));
+    setActiveCharId(remainingIds[0]);
+    setSelectedTokenId(remainingIds[0]);
+    triggerNotification('🗑️ Personagem removido da mesa.');
+  };
+
+  // Official Jambô Editora Rule for Skill / Attribute Rolls
   const handleRollOrdemTest = ({ label, attrKey, attrValue, skillBonus = 0, rank = '' }) => {
     const isZeroAttr = attrValue <= 0;
     const diceCount = isZeroAttr ? 2 : attrValue;
@@ -136,8 +191,8 @@ export default function App() {
       characterName: activeChar?.name || 'Agente',
       label,
       ruleSummary: isZeroAttr
-        ? `Atributo ${attrKey} 0 → 2d20 (Pega o MENOR)`
-        : `${diceCount}d20 (${attrKey}) → Pega o MAIOR + ${skillBonus} (${rank})`,
+        ? `Atributo ${attrKey} 0 → 2d20 (Menor)`
+        : `${diceCount}d20 (${attrKey}) → Maior + ${skillBonus} (${rank})`,
       rolls,
       chosenDie,
       bonus: skillBonus,
@@ -147,7 +202,6 @@ export default function App() {
     });
   };
 
-  // Roll Damage or Custom Polyhedral Dice (d4, d6, d8, d10, d12, d20)
   const handleRollDamageDice = ({ label, formula = '1d20', bonus = 0, element = 'Sangue' }) => {
     const match = formula.toLowerCase().match(/(\d+)d(\d+)/);
     const count = match ? Math.min(12, Math.max(1, parseInt(match[1], 10))) : 1;
@@ -170,7 +224,7 @@ export default function App() {
       id: Date.now(),
       characterName: characters[activeCharId]?.name || 'Agente',
       label,
-      ruleSummary: `Soma de Dados (${count}d${sides}${bonus ? ` + ${bonus}` : ''})`,
+      ruleSummary: `Soma (${count}d${sides}${bonus ? ` + ${bonus}` : ''})`,
       rolls,
       chosenDie: sumDice,
       bonus,
@@ -179,10 +233,9 @@ export default function App() {
     });
   };
 
-  // Cast Paranormal Ritual: Spend PE, Spawn Element Particles & Roll Dice
   const handleCastRitual = (char, ritual) => {
     if (char.pe.current < ritual.peCost) {
-      triggerNotification(`⚠️ PE Insuficiente para conjurar ${ritual.name} (Requer ${ritual.peCost} PE).`);
+      triggerNotification(`⚠️ PE Insuficiente para conjurar ${ritual.name}.`);
       return;
     }
 
@@ -201,15 +254,11 @@ export default function App() {
     });
 
     handleRollDamageDice({
-      label: `Ritual: ${ritual.name} (${ritual.element})`,
+      label: `Ritual: ${ritual.name}`,
       formula: ritual.damageDice || '2d6',
       bonus: ritual.damageBonus || 0,
       element: ritual.element,
     });
-
-    triggerNotification(
-      `✨ ${char.name} conjurou ${ritual.name} (-${ritual.peCost} PE)!`
-    );
   };
 
   const handleToggleFlashlight = () => {
@@ -233,15 +282,13 @@ export default function App() {
     );
   };
 
-  // Spawn Item from Catalog into the Scene
   const handleSpawnWorkshopItem = (item) => {
     const randX = -1.8 + (Math.random() - 0.5) * 2.5;
     const randZ = (Math.random() - 0.5) * 2.5;
 
     if (item.spawnType === 'token') {
-      const fallbackAvatar = makeAvatarSvg(
+      const fallbackAvatar = makeCharacterCutoutSvg(
         item.name.slice(0, 6).toUpperCase(),
-        '#18181b',
         item.color,
         'monster'
       );
@@ -255,7 +302,7 @@ export default function App() {
         color: item.color,
         ringColor: item.color,
         avatar: item.avatar || fallbackAvatar,
-        sizeSquares: item.sizeSquares || 1.0,
+        sizeSquares: item.sizeSquares || 1.15,
         x: randX,
         z: randZ,
         rotation: 0,
@@ -270,12 +317,12 @@ export default function App() {
       };
       setTokens((prev) => [...prev, newToken]);
       setSelectedTokenId(newToken.id);
-      triggerNotification(`🖼️ Token "${item.name}" colocado na mesa!`);
+      triggerNotification(`🖼️ "${item.name}" colocado no mapa!`);
     } else if (item.spawnType === 'clue') {
       const newClue = {
         id: `clue_${Date.now()}`,
-        title: `Pista de Investigação #${handouts.length + 1}`,
-        subtitle: 'Documento Colocado pelo Mestre',
+        title: `Pista #${handouts.length + 1}`,
+        subtitle: 'Documento no Mapa',
         type: 'diary',
         room: 1,
         x: randX,
@@ -283,15 +330,15 @@ export default function App() {
         z: randZ,
         revealedToAll: false,
         frontHeader: 'RELATÓRIO DE CAMPO — CARPAZINHA',
-        frontDate: 'Documento Recém-Descoberto',
+        frontDate: 'Documento Descoberto',
         frontBody:
-          'Anotações encontradas no local indicam a presença do símbolo espiral de Santo Berço.',
-        backTitle: 'VERSO DO DOCUMENTO — ANOTAÇÃO SECRETA',
+          'Anotações encontradas no local indicam a presença do símbolo espiral.',
+        backTitle: 'VERSO DO DOCUMENTO',
         backSecret: 'Procure a passagem oculta atrás da porta principal.',
-        backStamp: 'ORDO REALITAS — ARQUIVO CONFIDENCIAL',
+        backStamp: 'ORDO REALITAS',
       };
       setHandouts((prev) => [...prev, newClue]);
-      triggerNotification(`📄 Nova Pista "${newClue.title}" colocada no mapa!`);
+      triggerNotification(`📄 Nova Pista colocada no mapa!`);
     } else {
       setSpawnedProps((prev) => [
         ...prev,
@@ -303,11 +350,10 @@ export default function App() {
           z: randZ,
         },
       ]);
-      triggerNotification(`🪑 Objeto "${item.name}" adicionado ao mapa (arraste no Modo Mestre)!`);
+      triggerNotification(`🪑 "${item.name}" adicionado ao mapa!`);
     }
   };
 
-  // Spawn Custom Uploaded Image Prop onto the Map
   const handleSpawnImageProp = (name, dataUrl) => {
     setSpawnedProps((prev) => [
       ...prev,
@@ -320,22 +366,25 @@ export default function App() {
         z: 0,
       },
     ]);
-    triggerNotification(`🪑 Imagem "${name}" adicionada ao mapa! Arraste-a livremente no Modo Mestre.`);
+    triggerNotification(`🪑 Imagem "${name}" adicionada ao mapa!`);
   };
 
   const handleShareHandout = (clue) => {
     setHandouts((prev) =>
       prev.map((h) => (h.id === clue.id ? { ...h, revealedToAll: true } : h))
     );
-    triggerNotification(`📢 Pista "${clue.title}" revelada na tela de todos os jogadores!`);
+    triggerNotification(`📢 Pista "${clue.title}" revelada para todos!`);
   };
 
-  const activeCharacter = characters[activeCharId] || characters.arthur;
+  const activeCharacter =
+    characters[activeCharId] || Object.values(characters)[0];
   const activeToken = tokens.find((t) => t.id === activeCharId);
   const isPerturbado =
+    activeCharacter &&
     activeCharacter.san.current > 0 &&
     activeCharacter.san.current <= Math.floor(activeCharacter.san.max / 2);
-  const isEnlouquecendo = activeCharacter.san.current <= 0;
+  const isEnlouquecendo =
+    activeCharacter && activeCharacter.san.current <= 0;
 
   return (
     <div
@@ -343,13 +392,16 @@ export default function App() {
         isEnlouquecendo ? 'screen-insane-glitch' : ''
       }`}
     >
-      {/* Top Bar: Role Switcher (Modo Mestre vs Jogador), Initiative Tracker & Tactical Tools */}
+      {/* Compact Header (Works cleanly on Mobile & Desktop) */}
       <InitiativeTracker
         role={role}
         setRole={handleRoleChange}
         tokens={tokens}
         selectedTokenId={selectedTokenId}
-        setSelectedTokenId={setSelectedTokenId}
+        setSelectedTokenId={(id) => {
+          setSelectedTokenId(id);
+          if (characters[id]) setActiveCharId(id);
+        }}
         turnIndex={turnIndex}
         setTurnIndex={setTurnIndex}
         round={round}
@@ -357,14 +409,23 @@ export default function App() {
         onToggleCondition={handleToggleCondition}
         rulerForcedOn={rulerForcedOn}
         setRulerForcedOn={setRulerForcedOn}
-        showTeamCursors={showTeamCursors}
-        setShowTeamCursors={setShowTeamCursors}
+        onToggleLeftDrawer={() => {
+          setIsLeftDrawerOpen((v) => !v);
+          setIsRightSheetOpen(false);
+        }}
+        onToggleRightSheet={() => {
+          setIsRightSheetOpen((v) => !v);
+          setIsLeftDrawerOpen(false);
+        }}
+        activeCharacter={activeCharacter}
       />
 
-      {/* Main Workspace */}
-      <div className="flex-1 flex relative overflow-hidden">
-        {/* Left Sidebar: Map/Token Upload, Workshop, Fog/Rituals, Clues & Soundboard */}
+      {/* Fullscreen Map Container + Collapsible Drawers */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Left Collapsible Drawer: Menu, Scenario, Lighting, Clues & Audio */}
         <WorkshopAndAudioPanel
+          isOpen={isLeftDrawerOpen}
+          onClose={() => setIsLeftDrawerOpen(false)}
           role={role}
           fogMode={fogMode}
           setFogMode={setFogMode}
@@ -381,8 +442,8 @@ export default function App() {
           onOpenTokenModal={() => setStudioModalTab('tokens')}
         />
 
-        {/* Center 60FPS 2D/2.5D Tactical Tabletop ("O Segredo na Floresta" Style) */}
-        <main className="flex-1 relative h-full overflow-hidden">
+        {/* Fullscreen 60FPS Tabletop Canvas */}
+        <main className="w-full h-full relative overflow-hidden">
           <TabletopCanvas2D
             role={role}
             currentMap={currentMap}
@@ -392,7 +453,10 @@ export default function App() {
             tokens={tokens}
             setTokens={setTokens}
             selectedTokenId={selectedTokenId}
-            setSelectedTokenId={setSelectedTokenId}
+            setSelectedTokenId={(id) => {
+              setSelectedTokenId(id);
+              if (characters[id]) setActiveCharId(id);
+            }}
             handouts={handouts}
             setHandouts={setHandouts}
             onInspectHandout={(clue) => setInspectedHandout(clue)}
@@ -408,7 +472,7 @@ export default function App() {
             onNotification={triggerNotification}
           />
 
-          {/* Sanity Distortion Vignette Overlay (Perturbado / Enlouquecendo) */}
+          {/* Sanity Distortion Vignette Overlay */}
           {(isPerturbado || isEnlouquecendo) && (
             <div
               className={`pointer-events-none absolute inset-0 z-10 ${
@@ -417,52 +481,17 @@ export default function App() {
             />
           )}
 
-          {/* Bottom-Left Quick Help Card */}
-          {showControlsHint && (
-            <div className="absolute bottom-14 left-3 z-20 max-w-sm bg-zinc-950/95 backdrop-blur-md border border-zinc-800 rounded-xl p-3 shadow-xl text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                  <HelpCircle className="w-3.5 h-3.5" />
-                  Como Usar o Modo Mestre (Estilo O Segredo na Floresta)
-                </span>
-                <button
-                  onClick={() => setShowControlsHint(false)}
-                  className="text-zinc-500 hover:text-zinc-200"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <ul className="text-[11px] text-zinc-300 space-y-1 leading-snug">
-                <li>
-                  • <strong>Subir Seu Mapa ou Trocar Cenário:</strong> Clique em{' '}
-                  <strong className="text-amber-300">🗺️ Trocar / Subir Mapa</strong> no topo do
-                  mapa para usar qualquer imagem do seu PC ou os 4 mapas prontos!
-                </li>
-                <li>
-                  • <strong>Tokens com Sua Imagem:</strong> Clique em{' '}
-                  <strong className="text-red-300">🖼️ Criar / Editar Token</strong> para colocar a
-                  foto de qualquer personagem ou monstro.
-                </li>
-                <li>
-                  • <strong>Editar Tudo (Modo Mestre):</strong> Use a barra no topo do mapa para{' '}
-                  <strong>Mover Tudo</strong>, desenhar <strong>+ Parede</strong>, colocar{' '}
-                  <strong>+ Porta</strong> ou deixar o <strong>Mapa Aberto (Sem Sombra)</strong>!
-                </li>
-              </ul>
-            </div>
-          )}
-
           {/* Notification Toast */}
           {notification && (
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-xl bg-zinc-950/95 border border-amber-500/60 text-xs font-semibold text-zinc-100 shadow-2xl">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-xl bg-zinc-950/95 border border-amber-500/60 text-xs font-semibold text-zinc-100 shadow-2xl text-center max-w-xs sm:max-w-md">
               {notification}
             </div>
           )}
 
-          {/* Floating Dice Roll Result Card (Official Jambô Editora Rules) */}
+          {/* Floating Dice Roll Result Card */}
           {lastRollResult && (
-            <div className="absolute top-16 right-3 z-20 w-72 bg-zinc-950/95 backdrop-blur-md border border-amber-500/60 rounded-xl p-3.5 shadow-2xl animate-fadeIn">
-              <div className="flex items-start justify-between gap-2 mb-1.5">
+            <div className="absolute top-3 left-3 z-20 w-64 sm:w-72 bg-zinc-950/95 backdrop-blur-md border border-amber-500/60 rounded-xl p-3 shadow-2xl animate-fadeIn">
+              <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
                   <Dices className="w-4 h-4 text-red-400" />
                   <span>{lastRollResult.label}</span>
@@ -479,16 +508,16 @@ export default function App() {
                 {lastRollResult.characterName} • {lastRollResult.ruleSummary}
               </div>
 
-              <div className="flex flex-wrap gap-1.5 mb-2.5">
+              <div className="flex flex-wrap gap-1 mb-2">
                 {lastRollResult.rolls.map((val, idx) => {
                   const isSelected =
                     !lastRollResult.isDamage && val === lastRollResult.chosenDie;
                   return (
                     <span
                       key={idx}
-                      className={`px-2 py-1 rounded-md font-mono text-xs font-extrabold border ${
+                      className={`px-2 py-0.5 rounded font-mono text-xs font-extrabold border ${
                         isSelected
-                          ? 'bg-amber-500/25 border-amber-400 text-amber-200 scale-105 shadow'
+                          ? 'bg-amber-500/25 border-amber-400 text-amber-200'
                           : 'bg-zinc-900 border-zinc-800 text-zinc-400'
                       }`}
                     >
@@ -498,35 +527,23 @@ export default function App() {
                 })}
               </div>
 
-              <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
-                <div className="text-[11px] text-zinc-300 font-mono">
+              <div className="pt-1.5 border-t border-zinc-800 flex items-center justify-between">
+                <span className="text-[11px] text-zinc-300 font-mono">
                   Dado: <strong>{lastRollResult.chosenDie}</strong>
-                  {lastRollResult.bonus !== 0 && (
-                    <span> + Bônus: {lastRollResult.bonus}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {lastRollResult.isCrit && (
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-[9px] font-bold text-white uppercase">
-                      20 Natural!
-                    </span>
-                  )}
-                  {lastRollResult.isFumble && (
-                    <span className="px-1.5 py-0.5 rounded bg-red-700 text-[9px] font-bold text-white uppercase">
-                      Desastre!
-                    </span>
-                  )}
-                  <span className="text-xl font-mono font-black text-amber-300">
-                    = {lastRollResult.total}
-                  </span>
-                </div>
+                  {lastRollResult.bonus !== 0 && ` + ${lastRollResult.bonus}`}
+                </span>
+                <span className="text-lg font-mono font-black text-amber-300">
+                  = {lastRollResult.total}
+                </span>
               </div>
             </div>
           )}
         </main>
 
-        {/* Right Sidebar: Official Ordem Paranormal Character Sheet & Dice Roller */}
+        {/* Right Collapsible Drawer: C.R.I.S. Character Sheet + .docx Importer + Damage Calculator */}
         <CharacterSheetPanel
+          isOpen={isRightSheetOpen}
+          onClose={() => setIsRightSheetOpen(false)}
           character={activeCharacter}
           activeCharId={activeCharId}
           setActiveCharId={(id) => {
@@ -535,15 +552,18 @@ export default function App() {
           }}
           allCharacters={characters}
           onUpdateCharacter={handleUpdateCharacter}
+          onCreateCharacter={handleCreateCharacter}
+          onDeleteCharacter={handleDeleteCharacter}
           onRollOrdemTest={handleRollOrdemTest}
           onRollDamageDice={handleRollDamageDice}
           onCastRitual={handleCastRitual}
           onToggleFlashlight={handleToggleFlashlight}
           flashlightOn={activeToken?.flashlightOn !== false}
+          onNotification={triggerNotification}
         />
       </div>
 
-      {/* High-Resolution Handout / Clue Inspector Modal */}
+      {/* Handout / Clue Inspector Modal */}
       {inspectedHandout && (
         <HandoutInspectorModal
           handout={inspectedHandout}
@@ -553,7 +573,7 @@ export default function App() {
         />
       )}
 
-      {/* Map & Token Image Upload Studio Modal */}
+      {/* Map & Frameless Token Studio Modal */}
       {studioModalTab && (
         <MapAndTokenManagerModal
           initialTab={studioModalTab}

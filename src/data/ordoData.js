@@ -1,4 +1,4 @@
-// Official Data, Sheets, Maps ("O Segredo na Floresta"), Token Portraits, Handouts & Rules for "Ordo Realitas VTT"
+// Official Data, Sheets, Maps ("O Segredo na Floresta"), Frameless Character Cutouts, Handouts & Rules
 
 export const ELEMENT_THEMES = {
   Sangue: {
@@ -44,51 +44,61 @@ export const ELEMENT_THEMES = {
 };
 
 /**
- * Generates an inline SVG Data URI portrait for characters & monsters (used when user hasn't uploaded a custom photo yet)
+ * Generates a transparent-background FRAMELESS character cutout SVG (ONLY the person/creature, NO circle and NO border)
+ * so the character stands out with high contrast on the map.
  */
-export function makeAvatarSvg(initials, bgHex, ringHex, iconType = 'agent') {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-    <defs>
-      <radialGradient id="g" cx="50%" cy="40%" r="60%">
-        <stop offset="0%" stop-color="${ringHex}" stop-opacity="0.45"/>
-        <stop offset="100%" stop-color="${bgHex}" stop-opacity="1"/>
-      </radialGradient>
-    </defs>
-    <circle cx="60" cy="60" r="58" fill="url(#g)" stroke="${ringHex}" stroke-width="4"/>
-    ${
-      iconType === 'monster'
-        ? `<path d="M35 88 C35 62, 85 62, 85 88 Z" fill="#18181b" opacity="0.8"/>
-           <circle cx="60" cy="46" r="20" fill="#18181b"/>
-           <circle cx="52" cy="44" r="4" fill="#ef4444"/>
-           <circle cx="68" cy="44" r="4" fill="#ef4444"/>
-           <path d="M48 56 Q60 64 72 56" stroke="#ef4444" stroke-width="3" fill="none"/>`
-        : `<path d="M28 98 C28 68, 92 68, 92 98 Z" fill="#18181b" opacity="0.85"/>
-           <circle cx="60" cy="44" r="19" fill="#fde68a"/>
-           <path d="M41 38 Q60 22 79 38 L79 30 Q60 16 41 30 Z" fill="#27272a"/>`
-    }
-    <rect x="18" y="82" width="84" height="24" rx="6" fill="#09090b" opacity="0.85" stroke="${ringHex}" stroke-width="1.5"/>
-    <text x="60" y="98" text-anchor="middle" fill="#ffffff" font-family="monospace" font-weight="bold" font-size="15">${initials}</text>
-  </svg>`;
+export function makeCharacterCutoutSvg(label = '', accentHex = '#f59e0b', iconType = 'agent') {
+  const svg =
+    iconType === 'monster'
+      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
+          <!-- Monster Cutout Silhouette (No Circle, No Border) -->
+          <path d="M22 128 L34 66 L14 42 L38 50 L45 24 L60 36 L75 24 L82 50 L106 42 L86 66 L98 128 L74 128 L66 96 L54 96 L46 128 Z" fill="#18181b" stroke="${accentHex}" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="60" cy="46" r="18" fill="#27272a" stroke="${accentHex}" stroke-width="2"/>
+          <polygon points="48,43 56,47 48,50" fill="#ef4444"/>
+          <polygon points="72,43 64,47 72,50" fill="#ef4444"/>
+          <path d="M47 58 Q60 68 73 58" stroke="#dc2626" stroke-width="3" fill="none"/>
+          <path d="M42 74 L78 74 L70 98 L50 98 Z" fill="${accentHex}" opacity="0.35"/>
+        </svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
+          <!-- Agent Person Cutout (No Circle, No Border - High Contrast Figure) -->
+          <!-- Coat & Torso -->
+          <path d="M26 132 L32 66 Q34 54 48 52 L72 52 Q86 54 88 66 L94 132 L74 132 L70 98 L50 98 L46 132 Z" fill="#18181b" stroke="#f4f4f5" stroke-width="2" stroke-linejoin="round"/>
+          <!-- Jacket / Collar Accent -->
+          <path d="M44 52 L60 82 L76 52 L84 64 L78 118 L42 118 L36 64 Z" fill="${accentHex}" opacity="0.88"/>
+          <!-- Inner Shirt -->
+          <polygon points="50,52 70,52 60,78" fill="#09090b"/>
+          <!-- Head & Hair -->
+          <circle cx="60" cy="32" r="17" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
+          <path d="M42 29 Q60 10 78 29 L79 20 Q60 6 41 20 Z" fill="#18181b"/>
+          <!-- Eyes -->
+          <circle cx="54" cy="33" r="2.2" fill="#18181b"/>
+          <circle cx="66" cy="33" r="2.2" fill="#18181b"/>
+          <!-- Flashlight / Weapon in Right Hand -->
+          <rect x="84" y="76" width="22" height="8" rx="3" fill="#e4e4e7" stroke="#18181b" stroke-width="1.5"/>
+          <circle cx="105" cy="80" r="4" fill="#fef08a"/>
+        </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-// Preset Maps inspired by "O Segredo na Floresta" (Carpazinha, Suvaco Seco, Sanatório, Floresta de Santo Berço)
-// Coordinate system remains world meters: X from -7.5 to +7.5 (15m = 10 squares), Z from -4.5 to +4.5 (9m = 6 squares)
+// Keep alias for compatibility
+export function makeAvatarSvg(initials, _bgHex, ringHex, iconType = 'agent') {
+  return makeCharacterCutoutSvg(initials, ringHex, iconType);
+}
+
 export const PRESET_MAPS = [
   {
     id: 'carpazinha_mansao',
     name: '1. Mansão & Investigação em Carpazinha',
     subtitle: 'Duas salas separadas por porta física • Caso O Segredo na Floresta',
     theme: 'wood_mansion',
-    bgImageUrl: null, // Uses procedural detailed floorboards + furniture unless replaced by user image
+    bgImageUrl: null,
     gridEnabled: true,
-    gridOpacity: 0.18,
+    gridOpacity: 0.16,
     walls: [
       { id: 'w1', x1: -7.5, z1: -4.5, x2: 7.5, z2: -4.5 },
       { id: 'w2', x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
       { id: 'w3', x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
       { id: 'w4', x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-      // Central divider wall with doorway gap
       { id: 'w5', x1: 0, z1: -4.5, x2: 0, z2: -1.05 },
       { id: 'w6', x1: 0, z1: 0.95, x2: 0, z2: 4.5 },
     ],
@@ -98,7 +108,7 @@ export const PRESET_MAPS = [
         hingeX: 0,
         hingeZ: -1.05,
         length: 2.0,
-        baseAngle: 0, // 0 means pointing +Z from (0, -1.05) to (0, +0.95)
+        baseAngle: 0,
         angleRad: 0,
         locked: false,
       },
@@ -111,13 +121,12 @@ export const PRESET_MAPS = [
     theme: 'suvaco_seco',
     bgImageUrl: null,
     gridEnabled: true,
-    gridOpacity: 0.18,
+    gridOpacity: 0.16,
     walls: [
       { id: 'bw1', x1: -7.5, z1: -4.5, x2: 7.5, z2: -4.5 },
       { id: 'bw2', x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
       { id: 'bw3', x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
       { id: 'bw4', x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-      // Backroom divider at x = 2.2
       { id: 'bw5', x1: 2.2, z1: -4.5, x2: 2.2, z2: -0.6 },
       { id: 'bw6', x1: 2.2, z1: 1.4, x2: 2.2, z2: 4.5 },
     ],
@@ -140,13 +149,12 @@ export const PRESET_MAPS = [
     theme: 'sanatorio',
     bgImageUrl: null,
     gridEnabled: true,
-    gridOpacity: 0.2,
+    gridOpacity: 0.18,
     walls: [
       { id: 'sw1', x1: -7.5, z1: -4.5, x2: 7.5, z2: -4.5 },
       { id: 'sw2', x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
       { id: 'sw3', x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
       { id: 'sw4', x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-      // Isolation room wall
       { id: 'sw5', x1: -0.5, z1: -4.5, x2: -0.5, z2: -1.2 },
       { id: 'sw6', x1: -0.5, z1: 0.8, x2: -0.5, z2: 4.5 },
     ],
@@ -175,7 +183,6 @@ export const PRESET_MAPS = [
       { id: 'fw2', x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
       { id: 'fw3', x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
       { id: 'fw4', x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-      // Cabin walls in the woods
       { id: 'fw5', x1: 1.5, z1: -3.2, x2: 6.2, z2: -3.2 },
       { id: 'fw6', x1: 1.5, z1: 3.2, x2: 6.2, z2: 3.2 },
       { id: 'fw7', x1: 1.5, z1: -3.2, x2: 1.5, z2: -0.9 },
@@ -199,23 +206,24 @@ export const INITIAL_CHARACTERS = {
   arthur: {
     id: 'arthur',
     name: 'Arthur Cervero',
-    player: 'Jogador 1 (Você)',
+    player: 'Jogador 1',
     class: 'Especialista',
     subclass: 'Atirador de Elite',
-    origin: 'Gaudério Abutre (Carpazinha)',
+    origin: 'Gaudério Abutre',
+    patente: 'Agente Especial',
     nex: 50,
     pePerTurn: 10,
     movementMeters: 9,
     affinity: 'Sangue',
     cursorColor: '#f59e0b',
     tokenColor: '#d97706',
-    avatar: makeAvatarSvg('ARTHUR', '#451a03', '#f59e0b', 'agent'),
-    position: { x: -4.2, z: 1.5, rotation: 0 },
+    avatar: makeCharacterCutoutSvg('ARTHUR', '#f59e0b', 'agent'),
+    position: { x: -4.2, z: 1.2, rotation: 0 },
     hp: { current: 64, max: 64 },
     san: { current: 52, max: 60 },
     pe: { current: 42, max: 50 },
     defense: 19,
-    protection: 'Jaqueta dos Gaudérios Abutres (+5 Defesa)',
+    protection: 'Jaqueta dos Gaudérios (+5 Defesa)',
     resistances: 'Balístico 5, Mental 2, Sangue 5',
     attributes: {
       AGI: 4,
@@ -244,12 +252,10 @@ export const INITIAL_CHARACTERS = {
       { name: 'Vontade', attr: 'PRE', bonus: 5, rank: 'Treinado' },
     ],
     inventory: [
-      { id: 'w1', name: 'Rifle de Precisão Customizado (.308)', category: 'III', spaces: 2, type: 'weapon', skill: 'Pontaria', damageDice: '2d10', damageBonus: 4, crit: '19/x3' },
+      { id: 'w1', name: 'Rifle de Precisão (.308)', category: 'III', spaces: 2, type: 'weapon', skill: 'Pontaria', damageDice: '2d10', damageBonus: 4, crit: '19/x3' },
       { id: 'w2', name: 'Pistola Tática Silenciada', category: 'I', spaces: 1, type: 'weapon', skill: 'Pontaria', damageDice: '1d12', damageBonus: 2, crit: '18/x2' },
       { id: 'w3', name: 'Canivete Gaudério', category: 'I', spaces: 1, type: 'weapon', skill: 'Luta', damageDice: '1d4', damageBonus: 1, crit: '19/x2' },
-      { id: 'i1', name: 'Munição Longa Dum-Dum (2 pacotes)', category: 'II', spaces: 2, type: 'ammo' },
-      { id: 'i2', name: 'Lanterna Tática da Equipe Kelvin', category: 'I', spaces: 1, type: 'gear' },
-      { id: 'i3', name: 'Brasão de Couro dos Gaudérios Abutres', category: '0', spaces: 1, type: 'relic' },
+      { id: 'i2', name: 'Lanterna Tática da Ordem', category: 'I', spaces: 1, type: 'gear' },
     ],
     rituals: [
       {
@@ -275,6 +281,7 @@ export const INITIAL_CHARACTERS = {
         description: 'Seus olhos brilham em dourado, permitindo enxergar auras paranormais através de obstáculos.',
       },
     ],
+    notes: 'Importe seu arquivo .docx ou .txt na aba "Importar Docs" para substituir ou criar os personagens reais da sua mesa!',
   },
   joui: {
     id: 'joui',
@@ -283,14 +290,15 @@ export const INITIAL_CHARACTERS = {
     class: 'Combatente',
     subclass: 'Guerreiro (Katana)',
     origin: 'Ginasta Olímpico',
+    patente: 'Operador',
     nex: 50,
     pePerTurn: 10,
     movementMeters: 9,
     affinity: 'Sangue',
     cursorColor: '#ef4444',
     tokenColor: '#dc2626',
-    avatar: makeAvatarSvg('JOUI', '#450a0a', '#ef4444', 'agent'),
-    position: { x: -3.2, z: -0.4, rotation: 0 },
+    avatar: makeCharacterCutoutSvg('JOUI', '#ef4444', 'agent'),
+    position: { x: -2.8, z: -0.2, rotation: 0 },
     hp: { current: 86, max: 86 },
     san: { current: 44, max: 48 },
     pe: { current: 38, max: 45 },
@@ -310,7 +318,6 @@ export const INITIAL_CHARACTERS = {
       { name: 'Fortitude', attr: 'VIG', bonus: 10, rank: 'Veterano' },
       { name: 'Furtividade', attr: 'AGI', bonus: 5, rank: 'Treinado' },
       { name: 'Iniciativa', attr: 'AGI', bonus: 10, rank: 'Veterano' },
-      { name: 'Intuição', attr: 'PRE', bonus: 5, rank: 'Treinado' },
       { name: 'Luta', attr: 'FOR', bonus: 15, rank: 'Expert' },
       { name: 'Percepção', attr: 'PRE', bonus: 5, rank: 'Treinado' },
       { name: 'Pontaria', attr: 'AGI', bonus: 10, rank: 'Veterano' },
@@ -320,7 +327,6 @@ export const INITIAL_CHARACTERS = {
     inventory: [
       { id: 'j1', name: 'Katana Afiada (Shinokage)', category: 'II', spaces: 2, type: 'weapon', skill: 'Luta', damageDice: '1d10', damageBonus: 6, crit: '18/x2' },
       { id: 'j2', name: 'Arco Composto Tático', category: 'I', spaces: 2, type: 'weapon', skill: 'Pontaria', damageDice: '1d8', damageBonus: 3, crit: '19/x3' },
-      { id: 'j3', name: 'Máscara da Seita das Máscaras (Inativa)', category: 'III', spaces: 1, type: 'relic' },
     ],
     rituals: [
       {
@@ -335,6 +341,7 @@ export const INITIAL_CHARACTERS = {
         description: 'A fúria do Sangue amplifica os golpes corpo a corpo em +2d8 de dano visceral.',
       },
     ],
+    notes: '',
   },
   dante: {
     id: 'dante',
@@ -343,19 +350,20 @@ export const INITIAL_CHARACTERS = {
     class: 'Ocultista',
     subclass: 'Conduíte / Hacker',
     origin: 'Teórico da Conspiração',
+    patente: 'Agente Especial',
     nex: 55,
     pePerTurn: 11,
     movementMeters: 9,
     affinity: 'Morte',
     cursorColor: '#a855f7',
     tokenColor: '#7e22ce',
-    avatar: makeAvatarSvg('KAISER', '#2e1065', '#a855f7', 'agent'),
-    position: { x: -4.2, z: -1.8, rotation: 0 },
+    avatar: makeCharacterCutoutSvg('KAISER', '#a855f7', 'agent'),
+    position: { x: -4.2, z: -1.6, rotation: 0 },
     hp: { current: 44, max: 44 },
     san: { current: 70, max: 82 },
     pe: { current: 66, max: 72 },
     defense: 15,
-    protection: 'Sobretudo de Sigilos (+5 Resistência Paranormal)',
+    protection: 'Sobretudo de Sigilos (+5 Resistência)',
     resistances: 'Morte 10, Mental 5',
     attributes: {
       AGI: 2,
@@ -365,26 +373,19 @@ export const INITIAL_CHARACTERS = {
       VIG: 1,
     },
     skills: [
-      { name: 'Atletismo', attr: 'FOR', bonus: 0, rank: 'Destreinado' },
       { name: 'Diplomacia', attr: 'PRE', bonus: 10, rank: 'Veterano' },
       { name: 'Fortitude', attr: 'VIG', bonus: 5, rank: 'Treinado' },
-      { name: 'Furtividade', attr: 'AGI', bonus: 5, rank: 'Treinado' },
       { name: 'Iniciativa', attr: 'AGI', bonus: 5, rank: 'Treinado' },
-      { name: 'Intimidação', attr: 'PRE', bonus: 10, rank: 'Veterano' },
       { name: 'Intuição', attr: 'PRE', bonus: 10, rank: 'Veterano' },
       { name: 'Investigação', attr: 'INT', bonus: 15, rank: 'Expert' },
-      { name: 'Luta', attr: 'FOR', bonus: 0, rank: 'Destreinado' },
       { name: 'Medicina', attr: 'INT', bonus: 10, rank: 'Veterano' },
       { name: 'Ocultismo', attr: 'INT', bonus: 15, rank: 'Expert' },
       { name: 'Percepção', attr: 'PRE', bonus: 10, rank: 'Veterano' },
-      { name: 'Reflexos', attr: 'AGI', bonus: 5, rank: 'Treinado' },
       { name: 'Tecnologia', attr: 'INT', bonus: 15, rank: 'Expert' },
       { name: 'Vontade', attr: 'PRE', bonus: 15, rank: 'Expert' },
     ],
     inventory: [
       { id: 'd1', name: 'Notebook Criptografado ("Calisto")', category: 'II', spaces: 1, type: 'gear' },
-      { id: 'd2', name: 'Componentes Ritualísticos de Morte (Lodo Preto)', category: 'I', spaces: 1, type: 'component' },
-      { id: 'd3', name: 'Componentes Ritualísticos de Conhecimento', category: 'I', spaces: 1, type: 'component' },
       { id: 'd4', name: 'Punhal Cerimonial de Santo Berço', category: 'I', spaces: 1, type: 'weapon', skill: 'Ocultismo', damageDice: '1d6', damageBonus: 3, crit: '19/x2' },
     ],
     rituals: [
@@ -398,7 +399,7 @@ export const INITIAL_CHARACTERS = {
         range: 'Curto',
         damageDice: '2d8',
         damageBonus: 2,
-        description: 'Espirais de lodo negro aceleram o tempo ao redor do alvo, apodrecendo matéria orgânica (2d8+2 de dano de Morte).',
+        description: 'Espirais de lodo negro aceleram o tempo ao redor do alvo (2d8+2 de dano de Morte).',
       },
       {
         id: 'r_cicatrizacao',
@@ -410,7 +411,7 @@ export const INITIAL_CHARACTERS = {
         range: 'Toque',
         damageDice: '3d8',
         damageBonus: 3,
-        description: 'Acelera o tempo do tecido ferido, curando 3d8+3 PV instantaneamente, mas envelhecendo o alvo em 1 ano.',
+        description: 'Acelera o tempo do tecido ferido, curando 3d8+3 PV instantaneamente.',
       },
       {
         id: 'r_descarnar',
@@ -422,21 +423,10 @@ export const INITIAL_CHARACTERS = {
         range: 'Toque',
         damageDice: '6d8',
         damageBonus: 0,
-        description: 'Manifesta garras de sangue bruto que dilaceram a carne do alvo causando 6d8 de dano e hemorragia severa.',
-      },
-      {
-        id: 'r_cineraria',
-        name: 'Cinerária (Névoa de Carpazinha)',
-        element: 'Medo',
-        circle: 1,
-        peCost: 1,
-        execution: 'Padrão',
-        range: 'Curto',
-        damageDice: '2d10',
-        damageBonus: 0,
-        description: 'Invoca a névoa densa da floresta que fragiliza a Membrana e potencializa todos os rituais na área.',
+        description: 'Manifesta garras de sangue bruto que dilaceram a carne do alvo causando 6d8 de dano.',
       },
     ],
+    notes: '',
   },
 };
 
@@ -450,10 +440,10 @@ export const INITIAL_TOKENS = [
     element: 'Sangue',
     color: '#d97706',
     ringColor: '#f59e0b',
-    avatar: makeAvatarSvg('ARTHUR', '#451a03', '#f59e0b', 'agent'),
-    sizeSquares: 1,
+    avatar: makeCharacterCutoutSvg('ARTHUR', '#f59e0b', 'agent'),
+    sizeSquares: 1.15,
     x: -4.2,
-    z: 1.5,
+    z: 1.2,
     rotation: 0,
     hp: 64,
     maxHp: 64,
@@ -473,10 +463,10 @@ export const INITIAL_TOKENS = [
     element: 'Sangue',
     color: '#dc2626',
     ringColor: '#ef4444',
-    avatar: makeAvatarSvg('JOUI', '#450a0a', '#ef4444', 'agent'),
-    sizeSquares: 1,
-    x: -3.0,
-    z: -0.2,
+    avatar: makeCharacterCutoutSvg('JOUI', '#ef4444', 'agent'),
+    sizeSquares: 1.15,
+    x: -2.4,
+    z: -0.1,
     rotation: 0,
     hp: 86,
     maxHp: 86,
@@ -489,17 +479,17 @@ export const INITIAL_TOKENS = [
   },
   {
     id: 'dante',
-    name: 'Cesar "Kaiser" / Dante',
+    name: 'Kaiser / Dante',
     subtitle: 'Ocultista • NEX 55%',
     type: 'player',
     owner: 'dante',
     element: 'Morte',
     color: '#7e22ce',
     ringColor: '#a855f7',
-    avatar: makeAvatarSvg('KAISER', '#2e1065', '#a855f7', 'agent'),
-    sizeSquares: 1,
+    avatar: makeCharacterCutoutSvg('KAISER', '#a855f7', 'agent'),
+    sizeSquares: 1.15,
     x: -4.2,
-    z: -1.8,
+    z: -1.6,
     rotation: 0,
     hp: 44,
     maxHp: 44,
@@ -512,15 +502,15 @@ export const INITIAL_TOKENS = [
   },
   {
     id: 'zumbi_sangue_1',
-    name: 'Carente / Zumbi Bestial',
+    name: 'O Carente',
     subtitle: 'Criatura Paranormal • Sala Leste',
     type: 'monster',
     owner: 'gm',
     element: 'Sangue',
     color: '#991b1b',
     ringColor: '#ef4444',
-    avatar: makeAvatarSvg('CARENTE', '#450a0a', '#dc2626', 'monster'),
-    sizeSquares: 1.35,
+    avatar: makeCharacterCutoutSvg('CARENTE', '#dc2626', 'monster'),
+    sizeSquares: 1.45,
     x: 4.1,
     z: 0.4,
     rotation: Math.PI,
@@ -618,7 +608,7 @@ export const WORKSHOP_CATALOG = [
     element: 'Sangue',
     spawnType: 'token',
     color: '#dc2626',
-    avatar: makeAvatarSvg('CARENTE', '#450a0a', '#ef4444', 'monster'),
+    avatar: makeCharacterCutoutSvg('CARENTE', '#ef4444', 'monster'),
     sizeSquares: 1.5,
     hp: 180,
     desc: 'Criatura bizarra e brutal de Sangue que imita um choro infantil.',
@@ -630,7 +620,7 @@ export const WORKSHOP_CATALOG = [
     element: 'Morte',
     spawnType: 'token',
     color: '#52525b',
-    avatar: makeAvatarSvg('ARANHA', '#18181b', '#a1a1aa', 'monster'),
+    avatar: makeCharacterCutoutSvg('ARANHA', '#a1a1aa', 'monster'),
     sizeSquares: 2.0,
     hp: 220,
     desc: 'Aranha colossal de lodo preto que habita a caverna da floresta.',
@@ -642,8 +632,8 @@ export const WORKSHOP_CATALOG = [
     element: 'Morte',
     spawnType: 'token',
     color: '#71717a',
-    avatar: makeAvatarSvg('LUZIDIO', '#27272a', '#d4d4d8', 'agent'),
-    sizeSquares: 1.0,
+    avatar: makeCharacterCutoutSvg('LUZIDIO', '#d4d4d8', 'agent'),
+    sizeSquares: 1.15,
     hp: 65,
     desc: 'Morador hipnotizado de Santo Berço com pele acinzentada.',
   },
@@ -654,8 +644,8 @@ export const WORKSHOP_CATALOG = [
     element: 'Sangue',
     spawnType: 'token',
     color: '#f59e0b',
-    avatar: makeAvatarSvg('THIAGO', '#451a03', '#f59e0b', 'agent'),
-    sizeSquares: 1.0,
+    avatar: makeCharacterCutoutSvg('THIAGO', '#f59e0b', 'agent'),
+    sizeSquares: 1.15,
     hp: 75,
     desc: 'Jornalista e combatente veterano da Equipe E.',
   },
@@ -666,8 +656,8 @@ export const WORKSHOP_CATALOG = [
     element: 'Conhecimento',
     spawnType: 'token',
     color: '#eab308',
-    avatar: makeAvatarSvg('LIZ', '#422006', '#facc15', 'agent'),
-    sizeSquares: 1.0,
+    avatar: makeCharacterCutoutSvg('LIZ', '#facc15', 'agent'),
+    sizeSquares: 1.15,
     hp: 58,
     desc: 'Cientista forense e médica especialista da Ordo Realitas.',
   },
@@ -679,7 +669,7 @@ export const WORKSHOP_CATALOG = [
     spawnType: 'prop',
     propKind: 'desk',
     color: '#78350f',
-    desc: 'Mesa de madeira que pode ser movida e girada no Modo Mestre.',
+    desc: 'Mesa de madeira que pode ser movida no Modo Mestre.',
   },
   {
     id: 'ws_sigil',
