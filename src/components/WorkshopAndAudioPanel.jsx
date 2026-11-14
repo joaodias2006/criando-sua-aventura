@@ -41,7 +41,7 @@ export default function WorkshopAndAudioPanel({
 
   if (!isOpen) return null;
 
-  const categories = ['Todos', 'Criaturas', 'Móveis & Cenário', 'Paranormal', 'Iluminação', 'Investigação'];
+  const categories = ['Todos', 'Móveis & Cenário', 'Paranormal', 'Iluminação', 'Investigação'];
   const filteredCatalog =
     selectedCategory === 'Todos'
       ? WORKSHOP_CATALOG

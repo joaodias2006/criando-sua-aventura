@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  PRESET_MAPS,
+  INITIAL_MAP_STATE,
   INITIAL_CHARACTERS,
   INITIAL_TOKENS,
   INITIAL_HANDOUTS,
@@ -24,8 +24,8 @@ export default function App() {
   const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
   const [isRightSheetOpen, setIsRightSheetOpen] = useState(false);
 
-  // 3. Active Map / Environment State
-  const [currentMap, setCurrentMap] = useState(PRESET_MAPS[0]);
+  // 3. Active Multi-Floor Map / Environment State (Supports multiple maps side-by-side without size limit!)
+  const [currentMap, setCurrentMap] = useState(INITIAL_MAP_STATE);
   const [studioModalTab, setStudioModalTab] = useState(null);
 
   // 4. Characters & Frameless Tokens State
@@ -121,6 +121,7 @@ export default function App() {
     setActiveCharId(newChar.id);
     setSelectedTokenId(newChar.id);
 
+    const firstFloor = currentMap?.placedMaps?.[0] || { x: -8.5, z: 0 };
     const newToken = {
       id: newChar.id,
       name: newChar.name,
@@ -132,10 +133,10 @@ export default function App() {
       ringColor: newChar.cursorColor || '#f59e0b',
       avatar:
         newChar.avatar ||
-        makeCharacterCutoutSvg(newChar.name.slice(0, 6), '#f59e0b', 'agent'),
-      sizeSquares: 1.15,
-      x: -2.5 + (Math.random() - 0.5) * 1.5,
-      z: (Math.random() - 0.5) * 1.5,
+        makeCharacterCutoutSvg(newChar.name.slice(0, 6), '#f59e0b'),
+      sizeSquares: 0.95,
+      x: (firstFloor.x || 0) - 2 + (Math.random() - 0.5) * 1.5,
+      z: (firstFloor.z || 0) + (Math.random() - 0.5) * 1.5,
       rotation: 0,
       hp: newChar.hp.current,
       maxHp: newChar.hp.max,

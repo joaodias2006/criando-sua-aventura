@@ -1,4 +1,4 @@
-// Official Data, Sheets, Maps ("O Segredo na Floresta"), Frameless Character Cutouts, Handouts & Rules
+// Official Data, Sheets, Multi-Map Floors ("O Segredo na Floresta"), Frameless Character Cutouts, Handouts & Rules
 
 export const ELEMENT_THEMES = {
   Sangue: {
@@ -44,161 +44,130 @@ export const ELEMENT_THEMES = {
 };
 
 /**
- * Generates a transparent-background FRAMELESS character cutout SVG (ONLY the person/creature, NO circle and NO border)
- * so the character stands out with high contrast on the map.
+ * Generates a transparent-background FRAMELESS character cutout SVG (ONLY the person, NO circle and NO border)
  */
-export function makeCharacterCutoutSvg(label = '', accentHex = '#f59e0b', iconType = 'agent') {
-  const svg =
-    iconType === 'monster'
-      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
-          <!-- Monster Cutout Silhouette (No Circle, No Border) -->
-          <path d="M22 128 L34 66 L14 42 L38 50 L45 24 L60 36 L75 24 L82 50 L106 42 L86 66 L98 128 L74 128 L66 96 L54 96 L46 128 Z" fill="#18181b" stroke="${accentHex}" stroke-width="2.5" stroke-linejoin="round"/>
-          <circle cx="60" cy="46" r="18" fill="#27272a" stroke="${accentHex}" stroke-width="2"/>
-          <polygon points="48,43 56,47 48,50" fill="#ef4444"/>
-          <polygon points="72,43 64,47 72,50" fill="#ef4444"/>
-          <path d="M47 58 Q60 68 73 58" stroke="#dc2626" stroke-width="3" fill="none"/>
-          <path d="M42 74 L78 74 L70 98 L50 98 Z" fill="${accentHex}" opacity="0.35"/>
-        </svg>`
-      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
-          <!-- Agent Person Cutout (No Circle, No Border - High Contrast Figure) -->
-          <!-- Coat & Torso -->
-          <path d="M26 132 L32 66 Q34 54 48 52 L72 52 Q86 54 88 66 L94 132 L74 132 L70 98 L50 98 L46 132 Z" fill="#18181b" stroke="#f4f4f5" stroke-width="2" stroke-linejoin="round"/>
-          <!-- Jacket / Collar Accent -->
-          <path d="M44 52 L60 82 L76 52 L84 64 L78 118 L42 118 L36 64 Z" fill="${accentHex}" opacity="0.88"/>
-          <!-- Inner Shirt -->
-          <polygon points="50,52 70,52 60,78" fill="#09090b"/>
-          <!-- Head & Hair -->
-          <circle cx="60" cy="32" r="17" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
-          <path d="M42 29 Q60 10 78 29 L79 20 Q60 6 41 20 Z" fill="#18181b"/>
-          <!-- Eyes -->
-          <circle cx="54" cy="33" r="2.2" fill="#18181b"/>
-          <circle cx="66" cy="33" r="2.2" fill="#18181b"/>
-          <!-- Flashlight / Weapon in Right Hand -->
-          <rect x="84" y="76" width="22" height="8" rx="3" fill="#e4e4e7" stroke="#18181b" stroke-width="1.5"/>
-          <circle cx="105" cy="80" r="4" fill="#fef08a"/>
-        </svg>`;
+export function makeCharacterCutoutSvg(label = '', accentHex = '#f59e0b') {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140">
+    <!-- Agent Person Cutout (No Circle, No Border - High Contrast Figure) -->
+    <path d="M26 132 L32 66 Q34 54 48 52 L72 52 Q86 54 88 66 L94 132 L74 132 L70 98 L50 98 L46 132 Z" fill="#18181b" stroke="#f4f4f5" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M44 52 L60 82 L76 52 L84 64 L78 118 L42 118 L36 64 Z" fill="${accentHex}" opacity="0.88"/>
+    <polygon points="50,52 70,52 60,78" fill="#09090b"/>
+    <circle cx="60" cy="32" r="17" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
+    <path d="M42 29 Q60 10 78 29 L79 20 Q60 6 41 20 Z" fill="#18181b"/>
+    <circle cx="54" cy="33" r="2.2" fill="#18181b"/>
+    <circle cx="66" cy="33" r="2.2" fill="#18181b"/>
+    <rect x="84" y="76" width="22" height="8" rx="3" fill="#e4e4e7" stroke="#18181b" stroke-width="1.5"/>
+    <circle cx="105" cy="80" r="4" fill="#fef08a"/>
+  </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-// Keep alias for compatibility
-export function makeAvatarSvg(initials, _bgHex, ringHex, iconType = 'agent') {
-  return makeCharacterCutoutSvg(initials, ringHex, iconType);
+export function makeAvatarSvg(initials, _bgHex, ringHex) {
+  return makeCharacterCutoutSvg(initials, ringHex);
 }
 
-export const PRESET_MAPS = [
+// Initial Multi-Map Canvas State: Supports placing multiple maps side-by-side (e.g. 1º Andar + 2º Andar) with NO size limit!
+export const INITIAL_MAP_STATE = {
+  id: 'mansao_multi_andar',
+  name: 'Mansão (1º e 2º Andar)',
+  gridEnabled: true,
+  gridSize: 0.6, // Smaller, finer grid squares by default (adjustable from 0.25 to 2.0!)
+  gridOpacity: 0.16,
+  // Array of maps placed on the infinite table! Each has its own position (x, z), width, and natural aspect ratio.
+  placedMaps: [
+    {
+      id: 'floor_1',
+      name: '1º Andar — Térreo da Mansão',
+      theme: 'wood_mansion',
+      bgImageUrl: null,
+      x: -8.5,
+      z: 0,
+      width: 15,
+      height: 9,
+      aspectRatio: 15 / 9,
+    },
+    {
+      id: 'floor_2',
+      name: '2º Andar — Ala Superior',
+      theme: 'sanatorio',
+      bgImageUrl: null,
+      x: 8.5,
+      z: 0,
+      width: 15,
+      height: 9,
+      aspectRatio: 15 / 9,
+    },
+  ],
+  walls: [
+    // 1º Andar walls (around x: -16 to -1)
+    { id: 'w1', x1: -16, z1: -4.5, x2: -1, z2: -4.5 },
+    { id: 'w2', x1: -1, z1: -4.5, x2: -1, z2: 4.5 },
+    { id: 'w3', x1: -1, z1: 4.5, x2: -16, z2: 4.5 },
+    { id: 'w4', x1: -16, z1: 4.5, x2: -16, z2: -4.5 },
+    { id: 'w5', x1: -8.5, z1: -4.5, x2: -8.5, z2: -1.0 },
+    { id: 'w6', x1: -8.5, z1: 1.0, x2: -8.5, z2: 4.5 },
+    // 2º Andar walls (around x: 1 to 16)
+    { id: 'w7', x1: 1, z1: -4.5, x2: 16, z2: -4.5 },
+    { id: 'w8', x1: 16, z1: -4.5, x2: 16, z2: 4.5 },
+    { id: 'w9', x1: 16, z1: 4.5, x2: 1, z2: 4.5 },
+    { id: 'w10', x1: 1, z1: 4.5, x2: 1, z2: -4.5 },
+    { id: 'w11', x1: 8.5, z1: -4.5, x2: 8.5, z2: -1.0 },
+    { id: 'w12', x1: 8.5, z1: 1.0, x2: 8.5, z2: 4.5 },
+  ],
+  doors: [
+    {
+      id: 'door_floor1',
+      hingeX: -8.5,
+      hingeZ: -1.0,
+      length: 2.0,
+      baseAngle: 0,
+      angleRad: 0,
+      locked: false,
+    },
+    {
+      id: 'door_floor2',
+      hingeX: 8.5,
+      hingeZ: -1.0,
+      length: 2.0,
+      baseAngle: 0,
+      angleRad: 0,
+      locked: false,
+    },
+  ],
+};
+
+export const PRESET_MAP_TEMPLATES = [
   {
-    id: 'carpazinha_mansao',
-    name: '1. Mansão & Investigação em Carpazinha',
-    subtitle: 'Duas salas separadas por porta física • Caso O Segredo na Floresta',
+    id: 'tpl_mansion',
+    name: 'Mansão de Madeira (Interior)',
+    subtitle: 'Piso de tábuas corridas, tapete, escrivaninha e sala ocultista',
     theme: 'wood_mansion',
-    bgImageUrl: null,
-    gridEnabled: true,
-    gridOpacity: 0.16,
-    walls: [
-      { id: 'w1', x1: -7.5, z1: -4.5, x2: 7.5, z2: -4.5 },
-      { id: 'w2', x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
-      { id: 'w3', x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
-      { id: 'w4', x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-      { id: 'w5', x1: 0, z1: -4.5, x2: 0, z2: -1.05 },
-      { id: 'w6', x1: 0, z1: 0.95, x2: 0, z2: 4.5 },
-    ],
-    doors: [
-      {
-        id: 'door_main',
-        hingeX: 0,
-        hingeZ: -1.05,
-        length: 2.0,
-        baseAngle: 0,
-        angleRad: 0,
-        locked: false,
-      },
-    ],
+    width: 15,
+    height: 9,
   },
   {
-    id: 'bar_suvaco_seco',
-    name: '2. Bar "Suvaco Seco" (Gaudério Abutres)',
-    subtitle: 'Salão principal do bar na estrada de Carpazinha + Depósito nos fundos',
-    theme: 'suvaco_seco',
-    bgImageUrl: null,
-    gridEnabled: true,
-    gridOpacity: 0.16,
-    walls: [
-      { id: 'bw1', x1: -7.5, z1: -4.5, x2: 7.5, z2: -4.5 },
-      { id: 'bw2', x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
-      { id: 'bw3', x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
-      { id: 'bw4', x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-      { id: 'bw5', x1: 2.2, z1: -4.5, x2: 2.2, z2: -0.6 },
-      { id: 'bw6', x1: 2.2, z1: 1.4, x2: 2.2, z2: 4.5 },
-    ],
-    doors: [
-      {
-        id: 'door_bar',
-        hingeX: 2.2,
-        hingeZ: -0.6,
-        length: 2.0,
-        baseAngle: 0,
-        angleRad: 0,
-        locked: false,
-      },
-    ],
-  },
-  {
-    id: 'sanatorio_carpazinha',
-    name: '3. Sanatório Abandonado de Carpazinha',
-    subtitle: 'Corredor hospitalar escuro, ala psiquiátrica e sala de arquivos',
+    id: 'tpl_sanatorio',
+    name: '2º Andar / Corredor & quartos',
+    subtitle: 'Piso frio quadriculado e salas divididas',
     theme: 'sanatorio',
-    bgImageUrl: null,
-    gridEnabled: true,
-    gridOpacity: 0.18,
-    walls: [
-      { id: 'sw1', x1: -7.5, z1: -4.5, x2: 7.5, z2: -4.5 },
-      { id: 'sw2', x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
-      { id: 'sw3', x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
-      { id: 'sw4', x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-      { id: 'sw5', x1: -0.5, z1: -4.5, x2: -0.5, z2: -1.2 },
-      { id: 'sw6', x1: -0.5, z1: 0.8, x2: -0.5, z2: 4.5 },
-    ],
-    doors: [
-      {
-        id: 'door_sanatorio',
-        hingeX: -0.5,
-        hingeZ: -1.2,
-        length: 2.0,
-        baseAngle: 0,
-        angleRad: 0,
-        locked: true,
-      },
-    ],
+    width: 15,
+    height: 9,
   },
   {
-    id: 'floresta_santo_berco',
-    name: '4. Floresta de Névoa & Santo Berço',
-    subtitle: 'Mata fechada à noite, trilha de lama, cabana e Pedra do Símbolo Espiral',
+    id: 'tpl_suvaco_seco',
+    name: 'Bar "Suvaco Seco" (Carpazinha)',
+    subtitle: 'Balcão de madeira, mesa de sinuca e depósito',
+    theme: 'suvaco_seco',
+    width: 15,
+    height: 9,
+  },
+  {
+    id: 'tpl_floresta',
+    name: 'Floresta de Névoa & Cabana',
+    subtitle: 'Área externa com árvores, trilha de terra e cabana',
     theme: 'floresta',
-    bgImageUrl: null,
-    gridEnabled: true,
-    gridOpacity: 0.15,
-    walls: [
-      { id: 'fw1', x1: -7.5, z1: -4.5, x2: 7.5, z2: -4.5 },
-      { id: 'fw2', x1: 7.5, z1: -4.5, x2: 7.5, z2: 4.5 },
-      { id: 'fw3', x1: 7.5, z1: 4.5, x2: -7.5, z2: 4.5 },
-      { id: 'fw4', x1: -7.5, z1: 4.5, x2: -7.5, z2: -4.5 },
-      { id: 'fw5', x1: 1.5, z1: -3.2, x2: 6.2, z2: -3.2 },
-      { id: 'fw6', x1: 1.5, z1: 3.2, x2: 6.2, z2: 3.2 },
-      { id: 'fw7', x1: 1.5, z1: -3.2, x2: 1.5, z2: -0.9 },
-      { id: 'fw8', x1: 1.5, z1: 1.1, x2: 1.5, z2: 3.2 },
-    ],
-    doors: [
-      {
-        id: 'door_cabana',
-        hingeX: 1.5,
-        hingeZ: -0.9,
-        length: 2.0,
-        baseAngle: 0,
-        angleRad: 0,
-        locked: false,
-      },
-    ],
+    width: 16,
+    height: 10,
   },
 ];
 
@@ -217,8 +186,8 @@ export const INITIAL_CHARACTERS = {
     affinity: 'Sangue',
     cursorColor: '#f59e0b',
     tokenColor: '#d97706',
-    avatar: makeCharacterCutoutSvg('ARTHUR', '#f59e0b', 'agent'),
-    position: { x: -4.2, z: 1.2, rotation: 0 },
+    avatar: makeCharacterCutoutSvg('ARTHUR', '#f59e0b'),
+    position: { x: -12.5, z: 1.2, rotation: 0 },
     hp: { current: 64, max: 64 },
     san: { current: 52, max: 60 },
     pe: { current: 42, max: 50 },
@@ -254,7 +223,6 @@ export const INITIAL_CHARACTERS = {
     inventory: [
       { id: 'w1', name: 'Rifle de Precisão (.308)', category: 'III', spaces: 2, type: 'weapon', skill: 'Pontaria', damageDice: '2d10', damageBonus: 4, crit: '19/x3' },
       { id: 'w2', name: 'Pistola Tática Silenciada', category: 'I', spaces: 1, type: 'weapon', skill: 'Pontaria', damageDice: '1d12', damageBonus: 2, crit: '18/x2' },
-      { id: 'w3', name: 'Canivete Gaudério', category: 'I', spaces: 1, type: 'weapon', skill: 'Luta', damageDice: '1d4', damageBonus: 1, crit: '19/x2' },
       { id: 'i2', name: 'Lanterna Tática da Ordem', category: 'I', spaces: 1, type: 'gear' },
     ],
     rituals: [
@@ -269,19 +237,8 @@ export const INITIAL_CHARACTERS = {
         damageDice: '2d6',
         description: 'Veias carmesins envolvem a arma, concedendo +2 em testes de ataque e +1 na margem de ameaça.',
       },
-      {
-        id: 'r_compreensao',
-        name: 'Terceiro Olho',
-        element: 'Conhecimento',
-        circle: 1,
-        peCost: 1,
-        execution: 'Padrão',
-        range: 'Pessoal',
-        damageDice: '1d6',
-        description: 'Seus olhos brilham em dourado, permitindo enxergar auras paranormais através de obstáculos.',
-      },
     ],
-    notes: 'Importe seu arquivo .docx ou .txt na aba "Importar Docs" para substituir ou criar os personagens reais da sua mesa!',
+    notes: 'Use a aba "Docs/Importar" para subir o arquivo .docx da ficha dos seus personagens reais!',
   },
   joui: {
     id: 'joui',
@@ -297,8 +254,8 @@ export const INITIAL_CHARACTERS = {
     affinity: 'Sangue',
     cursorColor: '#ef4444',
     tokenColor: '#dc2626',
-    avatar: makeCharacterCutoutSvg('JOUI', '#ef4444', 'agent'),
-    position: { x: -2.8, z: -0.2, rotation: 0 },
+    avatar: makeCharacterCutoutSvg('JOUI', '#ef4444'),
+    position: { x: -11.0, z: -0.2, rotation: 0 },
     hp: { current: 86, max: 86 },
     san: { current: 44, max: 48 },
     pe: { current: 38, max: 45 },
@@ -316,133 +273,34 @@ export const INITIAL_CHARACTERS = {
       { name: 'Acrobacia', attr: 'AGI', bonus: 15, rank: 'Expert' },
       { name: 'Atletismo', attr: 'FOR', bonus: 10, rank: 'Veterano' },
       { name: 'Fortitude', attr: 'VIG', bonus: 10, rank: 'Veterano' },
-      { name: 'Furtividade', attr: 'AGI', bonus: 5, rank: 'Treinado' },
       { name: 'Iniciativa', attr: 'AGI', bonus: 10, rank: 'Veterano' },
       { name: 'Luta', attr: 'FOR', bonus: 15, rank: 'Expert' },
-      { name: 'Percepção', attr: 'PRE', bonus: 5, rank: 'Treinado' },
       { name: 'Pontaria', attr: 'AGI', bonus: 10, rank: 'Veterano' },
       { name: 'Reflexos', attr: 'AGI', bonus: 15, rank: 'Expert' },
       { name: 'Vontade', attr: 'PRE', bonus: 5, rank: 'Treinado' },
     ],
     inventory: [
       { id: 'j1', name: 'Katana Afiada (Shinokage)', category: 'II', spaces: 2, type: 'weapon', skill: 'Luta', damageDice: '1d10', damageBonus: 6, crit: '18/x2' },
-      { id: 'j2', name: 'Arco Composto Tático', category: 'I', spaces: 2, type: 'weapon', skill: 'Pontaria', damageDice: '1d8', damageBonus: 3, crit: '19/x3' },
     ],
-    rituals: [
-      {
-        id: 'r_odio',
-        name: 'Ódio Incontrolável',
-        element: 'Sangue',
-        circle: 1,
-        peCost: 1,
-        execution: 'Padrão',
-        range: 'Pessoal',
-        damageDice: '2d8',
-        description: 'A fúria do Sangue amplifica os golpes corpo a corpo em +2d8 de dano visceral.',
-      },
-    ],
-    notes: '',
-  },
-  dante: {
-    id: 'dante',
-    name: 'Cesar "Kaiser" / Dante',
-    player: 'Jogador 3',
-    class: 'Ocultista',
-    subclass: 'Conduíte / Hacker',
-    origin: 'Teórico da Conspiração',
-    patente: 'Agente Especial',
-    nex: 55,
-    pePerTurn: 11,
-    movementMeters: 9,
-    affinity: 'Morte',
-    cursorColor: '#a855f7',
-    tokenColor: '#7e22ce',
-    avatar: makeCharacterCutoutSvg('KAISER', '#a855f7', 'agent'),
-    position: { x: -4.2, z: -1.6, rotation: 0 },
-    hp: { current: 44, max: 44 },
-    san: { current: 70, max: 82 },
-    pe: { current: 66, max: 72 },
-    defense: 15,
-    protection: 'Sobretudo de Sigilos (+5 Resistência)',
-    resistances: 'Morte 10, Mental 5',
-    attributes: {
-      AGI: 2,
-      FOR: 0,
-      INT: 4,
-      PRE: 4,
-      VIG: 1,
-    },
-    skills: [
-      { name: 'Diplomacia', attr: 'PRE', bonus: 10, rank: 'Veterano' },
-      { name: 'Fortitude', attr: 'VIG', bonus: 5, rank: 'Treinado' },
-      { name: 'Iniciativa', attr: 'AGI', bonus: 5, rank: 'Treinado' },
-      { name: 'Intuição', attr: 'PRE', bonus: 10, rank: 'Veterano' },
-      { name: 'Investigação', attr: 'INT', bonus: 15, rank: 'Expert' },
-      { name: 'Medicina', attr: 'INT', bonus: 10, rank: 'Veterano' },
-      { name: 'Ocultismo', attr: 'INT', bonus: 15, rank: 'Expert' },
-      { name: 'Percepção', attr: 'PRE', bonus: 10, rank: 'Veterano' },
-      { name: 'Tecnologia', attr: 'INT', bonus: 15, rank: 'Expert' },
-      { name: 'Vontade', attr: 'PRE', bonus: 15, rank: 'Expert' },
-    ],
-    inventory: [
-      { id: 'd1', name: 'Notebook Criptografado ("Calisto")', category: 'II', spaces: 1, type: 'gear' },
-      { id: 'd4', name: 'Punhal Cerimonial de Santo Berço', category: 'I', spaces: 1, type: 'weapon', skill: 'Ocultismo', damageDice: '1d6', damageBonus: 3, crit: '19/x2' },
-    ],
-    rituals: [
-      {
-        id: 'r_decadenza',
-        name: 'Decadenza (Espiral de Santo Berço)',
-        element: 'Morte',
-        circle: 1,
-        peCost: 1,
-        execution: 'Padrão',
-        range: 'Curto',
-        damageDice: '2d8',
-        damageBonus: 2,
-        description: 'Espirais de lodo negro aceleram o tempo ao redor do alvo (2d8+2 de dano de Morte).',
-      },
-      {
-        id: 'r_cicatrizacao',
-        name: 'Cicatrização Acelerada',
-        element: 'Morte',
-        circle: 1,
-        peCost: 1,
-        execution: 'Padrão',
-        range: 'Toque',
-        damageDice: '3d8',
-        damageBonus: 3,
-        description: 'Acelera o tempo do tecido ferido, curando 3d8+3 PV instantaneamente.',
-      },
-      {
-        id: 'r_descarnar',
-        name: 'Descarnar',
-        element: 'Sangue',
-        circle: 2,
-        peCost: 3,
-        execution: 'Padrão',
-        range: 'Toque',
-        damageDice: '6d8',
-        damageBonus: 0,
-        description: 'Manifesta garras de sangue bruto que dilaceram a carne do alvo causando 6d8 de dano.',
-      },
-    ],
+    rituals: [],
     notes: '',
   },
 };
 
+// Only Universal Character/Creature Tokens — no separate locked "monster" system; any token can have any image!
 export const INITIAL_TOKENS = [
   {
     id: 'arthur',
     name: 'Arthur Cervero',
-    subtitle: 'Especialista • Gaudério Abutre',
+    subtitle: 'Especialista • NEX 50%',
     type: 'player',
     owner: 'arthur',
     element: 'Sangue',
     color: '#d97706',
     ringColor: '#f59e0b',
-    avatar: makeCharacterCutoutSvg('ARTHUR', '#f59e0b', 'agent'),
-    sizeSquares: 1.15,
-    x: -4.2,
+    avatar: makeCharacterCutoutSvg('ARTHUR', '#f59e0b'),
+    sizeSquares: 0.9,
+    x: -12.5,
     z: 1.2,
     rotation: 0,
     hp: 64,
@@ -457,16 +315,16 @@ export const INITIAL_TOKENS = [
   {
     id: 'joui',
     name: 'Joui Jouki',
-    subtitle: 'Combatente • Equipe E',
+    subtitle: 'Combatente • NEX 50%',
     type: 'player',
     owner: 'joui',
     element: 'Sangue',
     color: '#dc2626',
     ringColor: '#ef4444',
-    avatar: makeCharacterCutoutSvg('JOUI', '#ef4444', 'agent'),
-    sizeSquares: 1.15,
-    x: -2.4,
-    z: -0.1,
+    avatar: makeCharacterCutoutSvg('JOUI', '#ef4444'),
+    sizeSquares: 0.9,
+    x: -11.0,
+    z: -0.4,
     rotation: 0,
     hp: 86,
     maxHp: 86,
@@ -477,219 +335,77 @@ export const INITIAL_TOKENS = [
     conditions: [],
     flashlightOn: true,
   },
-  {
-    id: 'dante',
-    name: 'Kaiser / Dante',
-    subtitle: 'Ocultista • NEX 55%',
-    type: 'player',
-    owner: 'dante',
-    element: 'Morte',
-    color: '#7e22ce',
-    ringColor: '#a855f7',
-    avatar: makeCharacterCutoutSvg('KAISER', '#a855f7', 'agent'),
-    sizeSquares: 1.15,
-    x: -4.2,
-    z: -1.6,
-    rotation: 0,
-    hp: 44,
-    maxHp: 44,
-    san: 70,
-    maxSan: 82,
-    pe: 66,
-    maxPe: 72,
-    conditions: [],
-    flashlightOn: true,
-  },
-  {
-    id: 'zumbi_sangue_1',
-    name: 'O Carente',
-    subtitle: 'Criatura Paranormal • Sala Leste',
-    type: 'monster',
-    owner: 'gm',
-    element: 'Sangue',
-    color: '#991b1b',
-    ringColor: '#ef4444',
-    avatar: makeCharacterCutoutSvg('CARENTE', '#dc2626', 'monster'),
-    sizeSquares: 1.45,
-    x: 4.1,
-    z: 0.4,
-    rotation: Math.PI,
-    hp: 145,
-    maxHp: 145,
-    san: 0,
-    maxSan: 0,
-    pe: 0,
-    maxPe: 0,
-    conditions: ['Sangrando'],
-    flashlightOn: false,
-  },
 ];
 
 export const INITIAL_HANDOUTS = [
   {
     id: 'clue_diary',
-    title: 'Diário de Cristopher & Equipe Kelvin',
-    subtitle: 'Documento Físico • Escrivaninha Oeste',
+    title: 'Diário de Investigação',
+    subtitle: 'Documento Físico • 1º Andar',
     type: 'diary',
     room: 1,
-    x: -3.2,
+    x: -11.8,
     y: 0.94,
     z: -2.2,
     revealedToAll: false,
-    frontHeader: 'CADERNO DE INVESTIGAÇÃO — CARPAZINHA / RS',
-    frontDate: 'Abril de 2020 — Equipe Kelvin',
+    frontHeader: 'CADERNO DE ANOTAÇÕES — MANSÃO',
+    frontDate: 'Arquivo de Investigação',
     frontBody:
-      '“Encontramos o símbolo espiral gravado nas árvores ao redor de Carpazinha e atrás da porta trancada desta sala. O lodo preto escorre pelas frestas. Não entrem na sala ao lado sem as lanternas ligadas!”',
-    backTitle: 'VERSO DA PÁGINA (DESENHO DO SÍMBOLO ESPIRAL)',
-    backSecret: 'SEGREDO DE SANTO BERÇO: “TUDO GIRA EM TORNO DA ESPIRAL”\n[Dica Mecânica: Teste de Ocultismo DT 20 revela que o lodo preto reage ao fogo e à Energia!]',
-    backStamp: 'CONFIDENCIAL • ORDO REALITAS — CASO CARPAZINHA',
-  },
-  {
-    id: 'clue_photo',
-    title: 'Fotografia Rasgada no Bar Suvaco Seco',
-    subtitle: 'Evidência Fotográfica • Mesa Sul',
-    type: 'photo',
-    room: 1,
-    x: -1.8,
-    y: 0.78,
-    z: 2.3,
-    revealedToAll: false,
-    frontHeader: 'FOTO POLAROID — EQUIPE DESAPARECIDA',
-    frontDate: 'Estrada de Carpazinha',
-    frontBody:
-      'Uma fotografia Polaroid manchada de cinzas. Mostra os antigos investigadores diante do Sanatório de Carpazinha. No fundo, uma silhueta aracnídea gigantesca observa entre as árvores.',
-    backTitle: 'VERSO DA FOTOGRAFIA (ANOTAÇÃO DE ELIZABETH WEBBER)',
-    backSecret: '“Se ouvirem batidas vindo de dentro da porta trancada, preparem suas armas antes de girar a maçaneta.” — Liz Webber',
-    backStamp: 'EVIDÊNCIA #09-B • O SEGREDO NA FLORESTA',
-  },
-  {
-    id: 'clue_tape',
-    title: 'Fita K7 "Paciente #04 - Sanatório"',
-    subtitle: 'Áudio Analógico • Gravador de Mesa',
-    type: 'tape',
-    room: 1,
-    x: -3.4,
-    y: 0.94,
-    z: -1.3,
-    revealedToAll: false,
-    frontHeader: 'FITA MAGNÉTICA BASF 60 MIN — LADO A',
-    frontDate: 'Sanatório Psiquiátrico de Carpazinha',
-    frontBody:
-      '[CHIADO DE FITA]... “Doutor, a floresta me chama... O parasita abaixo da terra nunca dorme. Eu vi os olhos dele brilhando no escuro atrás daquela porta...” [SOM DE PORTA BATENDO]',
-    backTitle: 'LADO B — FREQUÊNCIA DO LABIRINTO',
-    backSecret: 'Ordem correta das pedras do ritual: Norte → Leste → Sul → Centro. Concede +5 em Percepção e Sobrevivência na Floresta.',
-    backStamp: 'ARQUIVO MÉDICO DE CARPAZINHA',
+      '“Encontramos a chave da escadaria que leva ao 2º Andar da mansão. As luzes lá em cima estão apagadas — mantenham as lanternas ligadas.”',
+    backTitle: 'VERSO DA PÁGINA (ANOTAÇÃO SECRETA)',
+    backSecret: 'DICA: Você pode arrastar seus personagens livremente do 1º Andar (à esquerda) para o 2º Andar (à direita)!',
+    backStamp: 'CONFIDENCIAL • ORDO REALITAS',
   },
   {
     id: 'clue_scroll',
-    title: 'Mapa Secreto de Santo Berço (Altar)',
-    subtitle: 'Artefato Oculto • Sala Leste (Atrás da Porta)',
+    title: 'Documento do 2º Andar',
+    subtitle: 'Evidência • 2º Andar da Mansão',
     type: 'scroll',
     room: 2,
-    x: 4.5,
+    x: 12.5,
     y: 0.98,
-    z: -2.1,
+    z: -2.0,
     revealedToAll: false,
-    frontHeader: 'PERGAMINHO DOS MANANCIAIS — SANTO BERÇO',
-    frontDate: 'Escrito com Lodo Negro em Couro',
+    frontHeader: 'REGISTRO DO 2º ANDAR',
+    frontDate: 'Ala Superior',
     frontBody:
-      'Um mapa antigo desenhado à mão mostrando a entrada subterrânea de Santo Berço, a Casa do Ferreiro, o Hotel e a Caverna da Aracnasita.',
-    backTitle: 'VERSO DO MAPA — INSCRIÇÃO DO DEUS DA MORTE',
-    backSecret: '“Aquele que controla o lodo controla o próprio Tempo.”\nInspecionar este documento restaura +2 PE para todos os agentes presentes.',
-    backStamp: 'GRAU DE AMEAÇA: EXTREMO (SANTO BERÇO)',
+      'Documentos deixados no segundo andar revelam a passagem secreta e os rituais realizados na mansão.',
+    backTitle: 'VERSO DO DOCUMENTO',
+    backSecret: 'Inspecionar este documento concede +2 PE aos investigadores.',
+    backStamp: 'ORDO REALITAS',
   },
 ];
 
 export const WORKSHOP_CATALOG = [
   {
-    id: 'ws_carente',
-    name: 'O Carente (Boss)',
-    category: 'Criaturas',
-    element: 'Sangue',
-    spawnType: 'token',
-    color: '#dc2626',
-    avatar: makeCharacterCutoutSvg('CARENTE', '#ef4444', 'monster'),
-    sizeSquares: 1.5,
-    hp: 180,
-    desc: 'Criatura bizarra e brutal de Sangue que imita um choro infantil.',
-  },
-  {
-    id: 'ws_aracnasita',
-    name: 'Aracnasita (Santo Berço)',
-    category: 'Criaturas',
-    element: 'Morte',
-    spawnType: 'token',
-    color: '#52525b',
-    avatar: makeCharacterCutoutSvg('ARANHA', '#a1a1aa', 'monster'),
-    sizeSquares: 2.0,
-    hp: 220,
-    desc: 'Aranha colossal de lodo preto que habita a caverna da floresta.',
-  },
-  {
-    id: 'ws_luzidio',
-    name: 'Habitante Luzidio',
-    category: 'Criaturas',
-    element: 'Morte',
-    spawnType: 'token',
-    color: '#71717a',
-    avatar: makeCharacterCutoutSvg('LUZIDIO', '#d4d4d8', 'agent'),
-    sizeSquares: 1.15,
-    hp: 65,
-    desc: 'Morador hipnotizado de Santo Berço com pele acinzentada.',
-  },
-  {
-    id: 'ws_thiago',
-    name: 'Thiago Fritz (Agente)',
-    category: 'Criaturas',
-    element: 'Sangue',
-    spawnType: 'token',
-    color: '#f59e0b',
-    avatar: makeCharacterCutoutSvg('THIAGO', '#f59e0b', 'agent'),
-    sizeSquares: 1.15,
-    hp: 75,
-    desc: 'Jornalista e combatente veterano da Equipe E.',
-  },
-  {
-    id: 'ws_liz',
-    name: 'Elizabeth Webber (Agente)',
-    category: 'Criaturas',
-    element: 'Conhecimento',
-    spawnType: 'token',
-    color: '#eab308',
-    avatar: makeCharacterCutoutSvg('LIZ', '#facc15', 'agent'),
-    sizeSquares: 1.15,
-    hp: 58,
-    desc: 'Cientista forense e médica especialista da Ordo Realitas.',
-  },
-  {
     id: 'ws_desk',
-    name: 'Mesa de Investigação',
+    name: 'Mesa de Madeira',
     category: 'Móveis & Cenário',
     element: 'Neutro',
     spawnType: 'prop',
     propKind: 'desk',
     color: '#78350f',
-    desc: 'Mesa de madeira que pode ser movida no Modo Mestre.',
+    desc: 'Mesa de investigação que pode ser movida livremente.',
   },
   {
     id: 'ws_sigil',
-    name: 'Símbolo Espiral (Santo Berço)',
+    name: 'Símbolo Ocultista no Chão',
     category: 'Paranormal',
     element: 'Morte',
     spawnType: 'prop',
     propKind: 'sigil',
     color: '#dc2626',
-    desc: 'Símbolo hipnótico da Espiral / Transcender no chão.',
+    desc: 'Símbolo da Espiral / Transcender no chão.',
   },
   {
     id: 'ws_blood',
-    name: 'Poça de Sangue & Lodo Preto',
+    name: 'Mancha de Sangue / Lodo',
     category: 'Paranormal',
     element: 'Sangue',
     spawnType: 'prop',
     propKind: 'blood',
     color: '#7f1d1d',
-    desc: 'Rastro visceral deixado por uma criatura no piso.',
+    desc: 'Rastro deixado no piso.',
   },
   {
     id: 'ws_candles',
@@ -699,11 +415,11 @@ export const WORKSHOP_CATALOG = [
     spawnType: 'prop',
     propKind: 'candles',
     color: '#f59e0b',
-    desc: 'Conjunto de velas acesas que iluminam ao redor.',
+    desc: 'Conjunto de velas acesas no mapa.',
   },
   {
     id: 'ws_clue',
-    name: 'Nova Pista / Documento Na Mesa',
+    name: 'Nova Pista / Documento',
     category: 'Investigação',
     element: 'Conhecimento',
     spawnType: 'clue',
@@ -713,11 +429,11 @@ export const WORKSHOP_CATALOG = [
 ];
 
 export const OFFICIAL_CONDITIONS = [
-  { id: 'Sangrando', label: 'Sangrando', color: '#dc2626', desc: 'Perde 1d6 PV no início do turno (DT 20 Vigor para estancar).' },
-  { id: 'Abalado', label: 'Abalado', color: '#a855f7', desc: '-1d20 em todos os testes de perícia. Se ficar abalado novamente, torna-se Apavorado.' },
-  { id: 'Paralisado', label: 'Paralisado', color: '#06b6d4', desc: 'Imóvel e indefeso; só pode realizar ações puramente mentais.' },
-  { id: 'Vulnerável', label: 'Vulnerável', color: '#f59e0b', desc: 'Sofre -5 na Defesa contra ataques.' },
-  { id: 'Perturbado', label: 'Perturbado', color: '#6366f1', desc: 'Sanidade abaixo da metade. Vozes e distorções da Membrana.' },
-  { id: 'Enlouquecendo', label: 'Enlouquecendo', color: '#ec4899', desc: '0 de Sanidade! Sucumbirá à loucura se não for acalmado em 3 rodadas.' },
-  { id: 'Morrendo', label: 'Morrendo', color: '#991b1b', desc: '0 de PV! Inconsciente e morrendo em 3 rodadas sem socorro médico.' },
+  { id: 'Sangrando', label: 'Sangrando', color: '#dc2626', desc: 'Perde 1d6 PV no início do turno.' },
+  { id: 'Abalado', label: 'Abalado', color: '#a855f7', desc: '-1d20 em testes.' },
+  { id: 'Paralisado', label: 'Paralisado', color: '#06b6d4', desc: 'Imóvel e indefeso.' },
+  { id: 'Vulnerável', label: 'Vulnerável', color: '#f59e0b', desc: '-5 na Defesa.' },
+  { id: 'Perturbado', label: 'Perturbado', color: '#6366f1', desc: 'Sanidade abaixo da metade.' },
+  { id: 'Enlouquecendo', label: 'Enlouquecendo', color: '#ec4899', desc: '0 de Sanidade!' },
+  { id: 'Morrendo', label: 'Morrendo', color: '#991b1b', desc: '0 de PV!' },
 ];
